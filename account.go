@@ -8,11 +8,11 @@ import (
 const CreateAccount = `INSERT INTO accounts (mlid, mlchkid, password) VALUES ($1, $2, $3)`
 
 func account(r *Response) string {
-	wiiID := r.request.Form.Get("mlid")
-	if !validateFriendCode(wiiID) {
+	mlid := r.request.Form.Get("mlid")
+	if !validateFriendCode(mlid[1:]) {
 		r.cgi = GenCGIError(610, "Invalid Wii Friend Code")
 		return ConvertToCGI(r.cgi)
-	} else if wiiID == "" {
+	} else if mlid == "" {
 		r.cgi = GenCGIError(310, "Unable to parse parameters.")
 		return ConvertToCGI(r.cgi)
 	}
@@ -29,7 +29,7 @@ func account(r *Response) string {
 	mlchkidByte := sha512.Sum512(append(salt, []byte(mlchkid)...))
 	mlchkidHash := hex.EncodeToString(mlchkidByte[:])
 
-	result, err := pool.Exec(ctx, CreateAccount, wiiID, passwordHash, mlchkidHash)
+	result, err := pool.Exec(ctx, CreateAccount, mlid, passwordHash, mlchkidHash)
 	if err != nil {
 		r.cgi = GenCGIError(410, "An error has occurred while querying the database.")
 		ReportError(err)
@@ -46,7 +46,7 @@ func account(r *Response) string {
 		other: []KV{
 			{
 				key:   "mlid",
-				value: wiiID,
+				value: mlid,
 			},
 			{
 				key:   "passwd",
