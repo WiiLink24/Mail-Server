@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-const CreateAccount = `INSERT INTO accounts (mlid, mlchkid, password) VALUES ($1, $2, $3)`
+const CreateAccount = `INSERT INTO accounts (mlid, password, mlchkid) VALUES ($1, $2, $3)`
 
 func account(r *Response) string {
 	mlid := r.request.Form.Get("mlid")
