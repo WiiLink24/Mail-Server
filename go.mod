@@ -8,6 +8,7 @@ require (
 	github.com/getsentry/sentry-go v0.20.0
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/logrusorgru/aurora/v4 v4.0.0
+	github.com/sendgrid/sendgrid-go v3.12.0+incompatible
 )
 
 require (

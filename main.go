@@ -71,7 +71,13 @@ func main() {
 		cgi.Handle("send.cgi", send)
 		cgi.Handle("receive.cgi", receive)
 		cgi.Handle("delete.cgi", _delete)
+		cgi.Handle("account.cgi", account)
 	}
+
+	/*sendgrid := r.HandleGroup("sendgrid")
+	{
+		sendgrid.Handle("send", inbound)
+	}*/
 
 	log.Fatal(http.ListenAndServe("0.0.0.0:80", r.Handle()))
 }
