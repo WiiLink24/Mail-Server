@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha512"
 	"encoding/hex"
+	"strconv"
 )
 
 const CreateAccount = `INSERT INTO accounts (mlid, mlchkid, password) VALUES ($1, $2, $3)`
@@ -29,7 +30,9 @@ func account(r *Response) string {
 	mlchkidByte := sha512.Sum512(append(salt, []byte(mlchkid)...))
 	mlchkidHash := hex.EncodeToString(mlchkidByte[:])
 
-	result, err := pool.Exec(ctx, CreateAccount, mlid, passwordHash, mlchkidHash)
+	id, _ := strconv.ParseInt(mlid[1:], 10, 64)
+
+	result, err := pool.Exec(ctx, CreateAccount, id, passwordHash, mlchkidHash)
 	if err != nil {
 		r.cgi = GenCGIError(410, "An error has occurred while querying the database.")
 		ReportError(err)
