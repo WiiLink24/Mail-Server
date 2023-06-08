@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"net/smtp"
 	"regexp"
 	"strings"
 )
@@ -10,7 +11,7 @@ import (
 var (
 	sendAuthRegex    = regexp.MustCompile(`^mlid=(w\d{16})\r?\npasswd=(.{16,32})$`)
 	mailFormKeyRegex = regexp.MustCompile(`m\d+`)
-	topMailRegex     = regexp.MustCompile(`^MAIL FROM: (w\d{16})@rc24.xyz\r?\nRCPT TO: (.*)@(.*)\r?\nDATA\r?\nDate: .*\r?\nFrom: (w\d{16})@rc24.xyz\r?\nTo: (.*)@(.*)\r?\n`)
+	topMailRegex     = regexp.MustCompile(`^MAIL FROM: (w\d{16})@wiilink24.com\r?\nRCPT TO: (.*)@(.*)\r?\nDATA\r?\nDate: .*\r?\nFrom: (w\d{16})@wiilink24.com\r?\nTo: (.*)@(.*)\r?\n`)
 )
 
 const (
@@ -78,7 +79,7 @@ func send(r *Response) string {
 				continue
 			}
 
-			if meta[3] == "wii.com" || meta[3] == "rc24.xyz" {
+			if meta[3] == "wii.com" || meta[3] == "wiilink24.com" {
 				isRecipientWii = true
 				recipient = meta[2]
 			} else {
@@ -93,7 +94,7 @@ func send(r *Response) string {
 		// Format: w9004342343324713@wii.com <mailto:w9004342343324713@wii.com>
 		parsedMail = strings.Replace(parsedMail,
 			fmt.Sprintf("%s@wii.com <mailto:%s@wii.com>", mlid, mlid),
-			fmt.Sprintf("%s@%s <mailto:%s@%s>", mlid, "rc24.xyz", mlid, "rc24.xyz"),
+			fmt.Sprintf("%s@wiilink24.com <mailto:%s@wiilink24.com>", mlid, mlid),
 			-1)
 
 		if isRecipientWii {
@@ -115,9 +116,24 @@ func send(r *Response) string {
 				ReportError(err)
 				continue
 			}
+		} else {
+			// PC Mail
+			// We currently utilize SendGrid, TODO: Use MailGun we get 20k messages/month
+			auth := smtp.PlainAuth("", "apikey", config.SendGridKey, "smtp.sendgrid.net")
+			err = smtp.SendMail(
+				"smtp.sendgrid.net:587",
+				auth,
+				fmt.Sprintf("%s@wiilink24.com", mlid),
+				[]string{recipient},
+				[]byte(parsedMail),
+			)
+			if err != nil {
+				r.cgi.AddMailResponse(index, 551, "Sendgrid error.")
+				ReportError(err)
+				continue
+			}
 		}
 
-		// TODO: PC Mail
 		// If everything was successful we write that to the response.
 		r.cgi.AddMailResponse(index, 100, "Success.")
 	}

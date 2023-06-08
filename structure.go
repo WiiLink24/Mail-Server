@@ -26,11 +26,12 @@ type KV struct {
 }
 
 type Config struct {
-	XMLName    xml.Name `xml:"Config"`
-	Address    string   `xml:"Address"`
-	SQLAddress string   `xml:"SQLAddress"`
-	SQLUser    string   `xml:"SQLUser"`
-	SQLPass    string   `xml:"SQLPass"`
-	SQLDB      string   `xml:"SQLDB"`
-	SentryDSN  string   `xml:"SentryDSN"`
+	XMLName     xml.Name `xml:"Config"`
+	Address     string   `xml:"Address"`
+	SQLAddress  string   `xml:"SQLAddress"`
+	SQLUser     string   `xml:"SQLUser"`
+	SQLPass     string   `xml:"SQLPass"`
+	SQLDB       string   `xml:"SQLDB"`
+	SentryDSN   string   `xml:"SentryDSN"`
+	SendGridKey string   `xml:"SendGridKey"`
 }

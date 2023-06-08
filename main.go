@@ -70,6 +70,7 @@ func main() {
 		cgi.Handle("check.cgi", check)
 		cgi.Handle("send.cgi", send)
 		cgi.Handle("receive.cgi", receive)
+		cgi.Handle("delete.cgi", _delete)
 	}
 
 	log.Fatal(http.ListenAndServe("0.0.0.0:80", r.Handle()))

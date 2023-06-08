@@ -3,11 +3,11 @@ module github.com/WiiLink24/Mail-Server
 go 1.19
 
 require (
+	github.com/WiiLink24/nwc24 v0.0.0-20230608020206-b86d9e90fb1d
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/getsentry/sentry-go v0.20.0
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/logrusorgru/aurora/v4 v4.0.0
-	golang.org/x/time v0.3.0
 )
 
 require (

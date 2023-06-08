@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/WiiLink24/nwc24"
 	"github.com/getsentry/sentry-go"
 	"github.com/logrusorgru/aurora/v4"
 	"log"
@@ -39,4 +40,27 @@ func generateBoundary() string {
 	source := rand.NewSource(time.Now().Unix())
 	val := rand.New(source)
 	return fmt.Sprintf("%s/%d", time.Now().Format("200601021504"), val.Intn(8999999)+1000000)
+}
+
+// validateFriendCode makes sure that the friend code is valid.
+// This includes checking its crc and making sure it isn't the default Dolphin hollywood ID.
+func validateFriendCode(strId string) bool {
+	if len(strId) != 16 {
+		// All Wii Numbers are 16 characters long.
+		return false
+	}
+
+	id, err := strconv.ParseInt(strId, 10, 64)
+	if err != nil {
+		// Not an integer value, therefore not an ID
+		return false
+	}
+
+	wiiNumber := nwc24.LoadWiiNumber(uint64(id))
+	if !wiiNumber.CheckWiiNumber() {
+		// Invalid Wii Number (crc is invalid)
+		return false
+	}
+
+	return !(wiiNumber.GetHollywoodID() == 0x0403AC68)
 }

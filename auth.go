@@ -41,6 +41,10 @@ func validatePassword(mlid, password string) error {
 		return ErrInvalidCredentials
 	}
 
+	if !validateFriendCode(mlid[1:]) {
+		return ErrInvalidCredentials
+	}
+
 	hash := hashPassword(password)
 	row := pool.QueryRow(ctx, ValidatePassword, mlid[1:], hash)
 	err := row.Scan(nil)
