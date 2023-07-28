@@ -49,9 +49,8 @@ func check(r *Response) string {
 	}
 
 	// The set mail flag can be literally anything other than the string literal 0000000000000000000000.
-	// Although code exists to update the mail flag, it is never called.
 	// KD compares this with the mail flag we send. If it matches, it will not try to receive mail. Otherwise, it does.
-	mailFlag := "1000000000000000000000"
+	mailFlag := RandStringBytesMaskImprSrc(22)
 	row = pool.QueryRow(context.Background(), DoesUserHaveMail, strconv.Itoa(int(mlid)))
 	err = row.Scan(nil)
 	if err == pgx.ErrNoRows {
