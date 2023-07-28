@@ -79,5 +79,5 @@ func main() {
 		sendgrid.Handle("send", inbound)
 	}*/
 
-	log.Fatal(http.ListenAndServe("0.0.0.0:80", r.Handle()))
+	log.Fatal(http.ListenAndServe(config.Address, r.Handle()))
 }
