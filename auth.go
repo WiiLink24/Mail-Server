@@ -4,6 +4,7 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"errors"
+	"github.com/jackc/pgx/v4"
 )
 
 var (
@@ -48,7 +49,9 @@ func validatePassword(mlid, password string) error {
 	hash := hashPassword(password)
 	row := pool.QueryRow(ctx, ValidatePassword, mlid[1:], hash)
 	err := row.Scan(nil)
-	if err != nil {
+	if err == pgx.ErrNoRows {
+		return ErrInvalidCredentials
+	} else if err != nil {
 		return err
 	}
 

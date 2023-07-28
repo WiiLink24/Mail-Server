@@ -33,6 +33,7 @@ func send(r *Response) string {
 	err = validatePassword(mlid, password)
 	if err == ErrInvalidCredentials {
 		r.cgi = GenCGIError(250, err.Error())
+		return ConvertToCGI(r.cgi)
 	} else if err != nil {
 		r.cgi = GenCGIError(551, "An error has occurred while querying the database.")
 		ReportError(err)
