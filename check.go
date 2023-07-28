@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/jackc/pgx/v4"
+	"strconv"
 )
 
 const (
@@ -51,7 +52,7 @@ func check(r *Response) string {
 	// Although code exists to update the mail flag, it is never called.
 	// KD compares this with the mail flag we send. If it matches, it will not try to receive mail. Otherwise, it does.
 	mailFlag := "1000000000000000000000"
-	row = pool.QueryRow(context.Background(), DoesUserHaveMail, mlid)
+	row = pool.QueryRow(context.Background(), DoesUserHaveMail, strconv.Itoa(int(mlid)))
 	err = row.Scan(nil)
 	if err == pgx.ErrNoRows {
 		mailFlag = "0000000000000000000000"
