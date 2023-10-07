@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
 	"fmt"
 	"net/smtp"
@@ -11,7 +12,8 @@ import (
 var (
 	sendAuthRegex    = regexp.MustCompile(`^mlid=(w\d{16})\r?\npasswd=(.{16,32})$`)
 	mailFormKeyRegex = regexp.MustCompile(`m\d+`)
-	topMailRegex     = regexp.MustCompile(`^MAIL FROM: (w\d{16})@wiilink24.com\r?\nRCPT TO: (.*)@(.*)\r?\nDATA\r?\nDate: .*\r?\nFrom: (w\d{16})@wiilink24.com\r?\nTo: (.*)@(.*)\r?\n`)
+	recipientRegex   = regexp.MustCompile(`^RCPT TO:\s(.*)@(.*)$`)
+	fromRegex        = regexp.MustCompile(`^MAIL FROM:\s(.*)@.*$`)
 )
 
 const (
@@ -57,37 +59,52 @@ func send(r *Response) string {
 	r.cgi.message = "Success."
 
 	for index, content := range mails {
-		var recipient string
+		var wiiRecipients []string
+		var emailRecipients []string
 
-		// Validate that the mail has all the metadata we need
-		isRecipientWii := false
-		meta := topMailRegex.FindStringSubmatch(content)
-		if meta != nil {
-			// First Match - Sender
-			// Second Match - Recipient without address
-			// Third match - Recipient's address
-			// Forth Match - Sender but in MIME format
-			// Fifth Match - Recipient but in MIME format without address
-			// Sixth Match - Recipient's address but in MIME format
-			if meta[1] != meta[4] || meta[1] != mlid || meta[4] != mlid {
-				r.cgi.AddMailResponse(index, 350, "Attempted to impersonate another user.")
+		// Read line by line.
+		// If you look in Git history, you can see that I used a method that was faster than this current one,
+		// then I learnt Wii Speak is able to send to multiple recipients at once.
+		msgIndex := 0
+		scanner := bufio.NewScanner(strings.NewReader(content))
+		for scanner.Scan() {
+			line := scanner.Text()
+
+			if line == "DATA" {
+				// We have reached the end of metadata parsing.
+				// Find the index of the actual data and skip to the end.
+				scanner.Scan()
+				line = scanner.Text()
+				msgIndex = strings.Index(content, line)
+				break
+			}
+
+			senderMatch := fromRegex.FindStringSubmatch(line)
+			if senderMatch != nil {
+				if senderMatch[1] != mlid {
+					r.cgi.AddMailResponse(index, 350, "Attempted to impersonate another user.")
+				}
 				continue
 			}
 
-			if meta[2] != meta[5] || meta[3] != meta[6] {
-				r.cgi.AddMailResponse(index, 350, "Recipients do not match.")
-				continue
-			}
-
-			if meta[3] == "wii.com" || meta[3] == "wiilink24.com" {
-				isRecipientWii = true
-				recipient = meta[2]
-			} else {
-				recipient = meta[2] + "@" + meta[3]
+			recipientMatch := recipientRegex.FindStringSubmatch(line)
+			if recipientMatch != nil {
+				if recipientMatch[2] == "wii.com" {
+					// Theoretically this should not be possible.
+					// A message formulated by a Wii used the address found in nwc24msg.cfg.
+					// If we got far, it would be @wiilink24.com.
+					// Regardless, if this does happen we don't want it clogging up our database or wasting
+					// precious API calls.
+				} else if recipientMatch[2] == "wiilink24.com" {
+					wiiRecipients = append(wiiRecipients, recipientMatch[1])
+				} else {
+					// This is an email.
+					emailRecipients = append(emailRecipients, fmt.Sprintf("%s@%s", recipientMatch[1], recipientMatch[2]))
+				}
 			}
 		}
 
-		parsedMail := content[strings.Index(content, "DATA")+5:]
+		parsedMail := content[msgIndex:]
 
 		// Replace all @wii.com references in the
 		// friend request email with our own domain.
@@ -97,16 +114,19 @@ func send(r *Response) string {
 			fmt.Sprintf("%s@wiilink24.com <mailto:%s@wiilink24.com>", mlid, mlid),
 			-1)
 
-		if isRecipientWii {
+		var didError bool
+		for _, recipient := range wiiRecipients {
 			var exists bool
 			err := pool.QueryRow(ctx, RecipientExists, recipient[1:]).Scan(&exists)
 			if err != nil && err != sql.ErrNoRows {
 				r.cgi.AddMailResponse(index, 551, "Issue verifying recipient.")
 				ReportError(err)
-				continue
+				didError = true
+				break
 			} else if !exists {
 				// Account doesn't exist, ignore
-				continue
+				didError = true
+				break
 			}
 
 			// Finally insert!
@@ -114,9 +134,12 @@ func send(r *Response) string {
 			if err != nil {
 				r.cgi.AddMailResponse(index, 450, "Database error.")
 				ReportError(err)
-				continue
+				didError = true
+				break
 			}
-		} else {
+		}
+
+		for _, recipient := range emailRecipients {
 			// PC Mail
 			// We currently utilize SendGrid, TODO: Use MailGun we get 20k messages/month
 			auth := smtp.PlainAuth("", "apikey", config.SendGridKey, "smtp.sendgrid.net")
@@ -130,12 +153,15 @@ func send(r *Response) string {
 			if err != nil {
 				r.cgi.AddMailResponse(index, 551, "Sendgrid error.")
 				ReportError(err)
+				didError = true
 				continue
 			}
 		}
 
-		// If everything was successful we write that to the response.
-		r.cgi.AddMailResponse(index, 100, "Success.")
+		if !didError {
+			// If everything was successful we write that to the response.
+			r.cgi.AddMailResponse(index, 100, "Success.")
+		}
 	}
 
 	return ConvertToCGI(r.cgi)

@@ -12,7 +12,7 @@ import (
 
 const (
 	DoesUserExist    = `SELECT mlid FROM accounts WHERE mlchkid = $1`
-	DoesUserHaveMail = `SELECT snowflake FROM mail WHERE recipient = $1 AND is_sent = false LIMIT 1`
+	DoesUserHaveMail = `SELECT EXISTS(SELECT 1 FROM mail WHERE recipient = $1 AND is_sent = false)`
 )
 
 // MailHMACKey is the key used to sign the HMAC.
@@ -51,14 +51,16 @@ func check(r *Response) string {
 	// The set mail flag can be literally anything other than the string literal 0000000000000000000000.
 	// KD compares this with the mail flag we send. If it matches, it will not try to receive mail. Otherwise, it does.
 	mailFlag := RandStringBytesMaskImprSrc(22)
-	row = pool.QueryRow(context.Background(), DoesUserHaveMail, strconv.Itoa(int(mlid)))
-	err = row.Scan(nil)
-	if err == pgx.ErrNoRows {
-		mailFlag = "0000000000000000000000"
-	} else if err != nil {
+	var exists bool
+	err = pool.QueryRow(context.Background(), DoesUserHaveMail, strconv.Itoa(int(mlid))).Scan(&exists)
+	if err != nil {
 		r.cgi = GenCGIError(320, "Error has occurred checking for mail.")
 		ReportError(err)
 		return ConvertToCGI(r.cgi)
+	}
+
+	if !exists {
+		mailFlag = "0000000000000000000000"
 	}
 
 	h := hmac.New(sha1.New, MailHMACKey)
