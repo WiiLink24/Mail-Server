@@ -33,16 +33,17 @@ func account(r *Response) string {
 	id, _ := strconv.ParseInt(mlid[1:], 10, 64)
 
 	result, err := pool.Exec(ctx, CreateAccount, id, passwordHash, mlchkidHash)
+	if result.RowsAffected() == 0 {
+		r.cgi = GenCGIError(211, "Duplicate registration.")
+		return ConvertToCGI(r.cgi)
+	}
+
 	if err != nil {
 		r.cgi = GenCGIError(410, "An error has occurred while querying the database.")
 		ReportError(err)
 		return ConvertToCGI(r.cgi)
 	}
 
-	if result.RowsAffected() == 0 {
-		r.cgi = GenCGIError(211, "Duplicate registration.")
-		return ConvertToCGI(r.cgi)
-	}
 	r.cgi = CGIResponse{
 		code:    100,
 		message: "Success.",
