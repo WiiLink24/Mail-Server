@@ -111,7 +111,7 @@ func send(r *Response) string {
 		// Format: w9004342343324713@wii.com <mailto:w9004342343324713@wii.com>
 		parsedMail = strings.Replace(parsedMail,
 			fmt.Sprintf("%s@wii.com <mailto:%s@wii.com>", mlid, mlid),
-			fmt.Sprintf("%s@wiilink24.com <mailto:%s@wiilink24.com>", mlid, mlid),
+			fmt.Sprintf("%s@mail.wiilink24.com <mailto:%s@mail.wiilink24.com>", mlid, mlid),
 			-1)
 
 		var didError bool
