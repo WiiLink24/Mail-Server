@@ -74,10 +74,10 @@ func main() {
 		cgi.Handle("account.cgi", account)
 	}
 
-	/*sendgrid := r.HandleGroup("sendgrid")
+	mailGun := r.HandleGroup("mail")
 	{
-		sendgrid.Handle("send", inbound)
-	}*/
+		mailGun.Handle("inbound", inbound)
+	}
 
 	log.Fatal(http.ListenAndServe(config.Address, r.Handle()))
 }
