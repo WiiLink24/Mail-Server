@@ -39,6 +39,9 @@ func inbound(r *Response) string {
 		return ConvertToCGI(r.cgi)
 	}
 
+	// We could also receive a multipart form.
+	_ = r.request.ParseMultipartForm(-1)
+
 	message := r.request.Form.Get("stripped-text")
 	if message == "" {
 		message = PlaceholderMessage
