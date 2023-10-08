@@ -111,8 +111,8 @@ func inbound(r *Response) string {
 	}
 
 	// We can do pretty much the exact same thing as the Wii send endpoint
-	parsedWiiNumber := strings.Split(from.Address, "@")[0]
-	_, err = pool.Exec(ctx, InsertMail, flakeNode.Generate(), formulatedMail, parsedWiiNumber[1:], to.Address)
+	parsedWiiNumber := strings.Split(to.Address, "@")[0]
+	_, err = pool.Exec(ctx, InsertMail, flakeNode.Generate(), formulatedMail, from.Address, parsedWiiNumber[1:])
 	if err != nil {
 		(*r.writer).WriteHeader(http.StatusInternalServerError)
 		ReportError(err)
