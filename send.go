@@ -95,7 +95,7 @@ func send(r *Response) string {
 					// If we got far, it would be @wiilink24.com.
 					// Regardless, if this does happen we don't want it clogging up our database or wasting
 					// precious API calls.
-				} else if recipientMatch[2] == "wiilink24.com" {
+				} else if recipientMatch[2] == "mail.wiilink24.com" {
 					wiiRecipients = append(wiiRecipients, recipientMatch[1])
 				} else {
 					// This is an email.
