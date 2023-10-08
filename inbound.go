@@ -32,7 +32,7 @@ const (
 )
 
 func inbound(r *Response) string {
-	err := r.request.ParseMultipartForm(-1)
+	err := r.request.ParseForm()
 	if err != nil {
 		r.cgi = GenCGIError(350, "Failed to parse mail.")
 		ReportError(err)
@@ -63,11 +63,14 @@ func inbound(r *Response) string {
 	subject := r.request.Form.Get("subject")
 
 	attachmentCountStr := r.request.Form.Get("attachment-count")
-	attachmentCount, err := strconv.Atoi(attachmentCountStr)
-	if err != nil {
-		(*r.writer).WriteHeader(http.StatusBadRequest)
-		ReportError(err)
-		return ""
+	attachmentCount := 0
+	if attachmentCountStr != "" {
+		attachmentCount, err = strconv.Atoi(attachmentCountStr)
+		if err != nil {
+			(*r.writer).WriteHeader(http.StatusBadRequest)
+			ReportError(err)
+			return ""
+		}
 	}
 
 	var attachment []byte
