@@ -142,16 +142,16 @@ func send(r *Response) string {
 		for _, recipient := range emailRecipients {
 			// PC Mail
 			// We currently utilize SendGrid, TODO: Use MailGun we get 20k messages/month
-			auth := smtp.PlainAuth("", "apikey", config.SendGridKey, "smtp.sendgrid.net")
+			auth := smtp.PlainAuth("", "postmaster@mail.wiilink24.com", config.MailGunKey, "smtp.mailgun.org")
 			err = smtp.SendMail(
-				"smtp.sendgrid.net:587",
+				"smtp.mailgun.org:587",
 				auth,
-				fmt.Sprintf("%s@wiilink24.com", mlid),
+				fmt.Sprintf("%s@mail.wiilink24.com", mlid),
 				[]string{recipient},
 				[]byte(parsedMail),
 			)
 			if err != nil {
-				r.cgi.AddMailResponse(index, 551, "Sendgrid error.")
+				r.cgi.AddMailResponse(index, 551, "MailGun error.")
 				ReportError(err)
 				didError = true
 				continue
