@@ -61,6 +61,7 @@ func send(r *Response) string {
 	for index, content := range mails {
 		var wiiRecipients []string
 		var emailRecipients []string
+		var hasError bool
 
 		// Read line by line.
 		// If you look in Git history, you can see that I used a method that was faster than this current one,
@@ -83,6 +84,8 @@ func send(r *Response) string {
 			if senderMatch != nil {
 				if senderMatch[1] != mlid {
 					r.cgi.AddMailResponse(index, 350, "Attempted to impersonate another user.")
+					hasError = true
+					break
 				}
 				continue
 			}
@@ -102,6 +105,10 @@ func send(r *Response) string {
 					emailRecipients = append(emailRecipients, fmt.Sprintf("%s@%s", recipientMatch[1], recipientMatch[2]))
 				}
 			}
+		}
+
+		if hasError {
+			continue
 		}
 
 		parsedMail := content[msgIndex:]
