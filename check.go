@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
@@ -52,7 +51,7 @@ func check(r *Response) string {
 	// KD compares this with the mail flag we send. If it matches, it will not try to receive mail. Otherwise, it does.
 	mailFlag := RandStringBytesMaskImprSrc(22)
 	var exists bool
-	err = pool.QueryRow(context.Background(), DoesUserHaveMail, strconv.Itoa(int(mlid))).Scan(&exists)
+	err = pool.QueryRow(ctx, DoesUserHaveMail, strconv.Itoa(int(mlid))).Scan(&exists)
 	if err != nil {
 		r.cgi = GenCGIError(320, "Error has occurred checking for mail.")
 		ReportError(err)
