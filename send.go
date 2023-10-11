@@ -13,7 +13,8 @@ var (
 	sendAuthRegex    = regexp.MustCompile(`^mlid=(w\d{16})\r?\npasswd=(.{16,32})$`)
 	mailFormKeyRegex = regexp.MustCompile(`m\d+`)
 	recipientRegex   = regexp.MustCompile(`^RCPT TO:\s(.*)@(.*)$`)
-	fromRegex        = regexp.MustCompile(`^MAIL FROM:\s(.*)@.*$`)
+	fromRegex        = regexp.MustCompile(`^MAIL FROM:\s(.*)@mail.wiilink24.com$`)
+	fromRegexPayload = regexp.MustCompile(`^From:\s(.*)@mail.wiilink24.com$`)
 )
 
 const (
@@ -77,7 +78,7 @@ func send(r *Response) string {
 				scanner.Scan()
 				line = scanner.Text()
 				msgIndex = strings.Index(content, line)
-				break
+				continue
 			}
 
 			senderMatch := fromRegex.FindStringSubmatch(line)
@@ -95,7 +96,7 @@ func send(r *Response) string {
 				if recipientMatch[2] == "wii.com" {
 					// Theoretically this should not be possible.
 					// A message formulated by a Wii used the address found in nwc24msg.cfg.
-					// If we got far, it would be @wiilink24.com.
+					// If we got far, it would be @mail.wiilink24.com.
 					// Regardless, if this does happen we don't want it clogging up our database or wasting
 					// precious API calls.
 				} else if recipientMatch[2] == "mail.wiilink24.com" {
@@ -104,6 +105,17 @@ func send(r *Response) string {
 					// This is an email.
 					emailRecipients = append(emailRecipients, fmt.Sprintf("%s@%s", recipientMatch[1], recipientMatch[2]))
 				}
+			}
+
+			// Additionally we also check the actual mail to see who it is coming from. A malicious user could
+			// send a correct header, but spoof the actual mail, impersonating another user
+			senderMatch = fromRegexPayload.FindStringSubmatch(line)
+			if senderMatch != nil {
+				if senderMatch[1] != mlid {
+					r.cgi.AddMailResponse(index, 350, "Attempted to impersonate another user.")
+					hasError = true
+				}
+				break
 			}
 		}
 
