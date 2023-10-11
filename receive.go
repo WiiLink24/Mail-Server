@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -56,6 +57,10 @@ func receive(r *Response) string {
 			continue
 		}
 
+		// Upon testing with Doujinsoft, I realized that the Wii expects Windows (CRLF) newlines,
+		// and will reject UNIX (LF) newlines.
+		data = strings.Replace(data, "\n", "\r\n", -1)
+		data = strings.Replace(data, "\r\r\n", "\r\n", -1)
 		current := "\r\n--" + boundary + "\r\nContent-Type: text/plain\r\n\r\n" + data
 		if len(mailToSend)+len(current) > maxSize {
 			break
