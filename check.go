@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	DoesUserExist    = `SELECT mlid FROM accounts WHERE mlchkid = $1`
+	DoesUserExist    = `SELECT mlid, last_flag FROM accounts WHERE mlchkid = $1`
 	DoesUserHaveMail = `SELECT EXISTS(SELECT 1 FROM mail WHERE recipient = $1 AND is_sent = false)`
+	InsertMailFlag   = `UPDATE accounts SET last_flag = $1 WHERE mlid = $2`
 )
 
 // MailHMACKey is the key used to sign the HMAC.
@@ -35,9 +36,10 @@ func check(r *Response) string {
 	}
 
 	var mlid uint64
+	var lastFlag string
 	password := hashPassword(mlchkid)
 	row := pool.QueryRow(ctx, DoesUserExist, password)
-	err := row.Scan(&mlid)
+	err := row.Scan(&mlid, &lastFlag)
 	if err == pgx.ErrNoRows {
 		r.cgi = GenCGIError(321, "User does not exist.")
 		return ConvertToCGI(r.cgi)
@@ -47,19 +49,29 @@ func check(r *Response) string {
 		return ConvertToCGI(r.cgi)
 	}
 
-	// The set mail flag can be literally anything other than the string literal 0000000000000000000000.
-	// KD compares this with the mail flag we send. If it matches, it will not try to receive mail. Otherwise, it does.
-	mailFlag := RandStringBytesMaskImprSrc(22)
-	var exists bool
-	err = pool.QueryRow(ctx, DoesUserHaveMail, strconv.Itoa(int(mlid))).Scan(&exists)
+	// The flag we send to the Wii is compared against the flag in wc24send.ctl. If it matches, no new mail is available.
+	// If it doesn't, there is mail.
+	var hasMail bool
+	err = pool.QueryRow(ctx, DoesUserHaveMail, strconv.Itoa(int(mlid))).Scan(&hasMail)
 	if err != nil {
 		r.cgi = GenCGIError(320, "Error has occurred checking for mail.")
 		ReportError(err)
 		return ConvertToCGI(r.cgi)
 	}
 
-	if !exists {
-		mailFlag = "0000000000000000000000"
+	var mailFlag string
+	if hasMail {
+		mailFlag = RandStringBytesMaskImprSrc(22)
+
+		// Now insert the new flag.
+		_, err = pool.Exec(ctx, InsertMailFlag, mailFlag, mlid)
+		if err != nil {
+			r.cgi = GenCGIError(320, "Error has occurred in saving mail flag.")
+			ReportError(err)
+			return ConvertToCGI(r.cgi)
+		}
+	} else {
+		mailFlag = lastFlag
 	}
 
 	h := hmac.New(sha1.New, MailHMACKey)
