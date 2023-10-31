@@ -93,12 +93,15 @@ func send(r *Response) string {
 
 			recipientMatch := recipientRegex.FindStringSubmatch(line)
 			if recipientMatch != nil {
-				if recipientMatch[2] == "wii.com" {
+				if recipientMatch[2] == "wii.com" || recipientMatch[2] == "rc24.xyz" {
 					// Theoretically this should not be possible.
 					// A message formulated by a Wii used the address found in nwc24msg.cfg.
 					// If we got far, it would be @mail.wiilink24.com.
 					// Regardless, if this does happen we don't want it clogging up our database or wasting
 					// precious API calls.
+
+					// Going back to my second comment, there was a moment where an attacker had the recipient
+					// as RC24, causing it to spam both our clients. As such we should block any RC24 recipients.
 				} else if recipientMatch[2] == "mail.wiilink24.com" {
 					wiiRecipients = append(wiiRecipients, recipientMatch[1])
 				} else {
