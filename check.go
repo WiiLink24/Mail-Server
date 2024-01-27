@@ -20,6 +20,7 @@ var MailHMACKey = []byte{0xce, 0x4c, 0xf2, 0x9a, 0x3d, 0x6b, 0xe1, 0xc2, 0x61, 0
 
 func check(r *Response) string {
 	(*r.writer).Header().Add("X-Wii-Mail-Download-Span", "10")
+	(*r.writer).Header().Add("X-Wii-Mail-Check-Span", interval)
 	(*r.writer).Header().Add("X-Wii-Download-Span", "10")
 	(*r.writer).Header().Add("Content-Type", "text/plain;charset=utf-8")
 
