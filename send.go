@@ -183,6 +183,11 @@ func send(r *Response) string {
 		if !didError {
 			// If everything was successful we write that to the response.
 			r.cgi.AddMailResponse(index, 100, "Success.")
+
+			err = dataDog.Incr("mail.sent_mail", nil, 1)
+			if err != nil {
+				ReportError(err)
+			}
 		}
 	}
 

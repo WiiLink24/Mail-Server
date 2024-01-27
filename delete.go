@@ -23,7 +23,7 @@ func _delete(r *Response) string {
 	// we set a flag for the messages that were already sent.
 	delNum := r.request.Form.Get("delnum")
 	// Integer checking
-	_, err = strconv.ParseInt(delNum, 10, 64)
+	intDelNum, err := strconv.ParseInt(delNum, 10, 64)
 	if err != nil {
 		r.cgi = GenCGIError(340, "Invalid delnum value was passed")
 		ReportError(err)
@@ -48,5 +48,9 @@ func _delete(r *Response) string {
 		},
 	}
 
+	err = dataDog.Incr("mail.deleted_mail", nil, float64(intDelNum))
+	if err != nil {
+		ReportError(err)
+	}
 	return ConvertToCGI(r.cgi)
 }

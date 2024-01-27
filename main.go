@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/bwmarrin/snowflake"
 	"github.com/getsentry/sentry-go"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 	"log"
 	"net/http"
 	"os"
@@ -19,6 +22,7 @@ var (
 	ctx       = context.Background()
 	flakeNode *snowflake.Node
 	salt      []byte
+	dataDog   *statsd.Client
 )
 
 // checkError checks is an error is nil or not. Only to be used with functions that will cause
@@ -45,6 +49,23 @@ func main() {
 	})
 	checkError(err)
 	defer sentry.Flush(2 * time.Second)
+
+	// Initialize DataDog
+	tracer.Start(
+		tracer.WithService("mail"),
+		tracer.WithEnv("prod"),
+		tracer.WithAgentAddr("127.0.0.1:8126"),
+	)
+	defer tracer.Stop()
+
+	err = profiler.Start(
+		profiler.WithService("mail"),
+		profiler.WithEnv("prod"),
+	)
+	checkError(err)
+	defer profiler.Stop()
+
+	dataDog, err = statsd.New("127.0.0.1:8125")
 
 	// Initialize snowflake
 	flakeNode, err = snowflake.NewNode(1)
