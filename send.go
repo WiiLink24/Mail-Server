@@ -166,7 +166,7 @@ func send(r *Response) string {
 			// We currently utilize SendGrid, TODO: Use MailGun we get 20k messages/month
 			auth := smtp.PlainAuth("", "apikey", config.SendGridKey, "smtp.sendgrid.net")
 			err = smtp.SendMail(
-				"smtp.sendgrid.org:587",
+				"smtp.sendgrid.net:587",
 				auth,
 				fmt.Sprintf("%s@rc24.xyz", mlid),
 				[]string{recipient},
