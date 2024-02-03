@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"golang.org/x/image/draw"
 	"image"
@@ -11,7 +13,6 @@ import (
 	"io"
 	"net/http"
 	"net/mail"
-	"strconv"
 	"strings"
 
 	// Importing as a side effect allows for the image library to check for these formats
@@ -32,17 +33,19 @@ const (
 )
 
 func inbound(r *Response) string {
-	err := r.request.ParseForm()
+	err := r.request.ParseMultipartForm(-1)
 	if err != nil {
 		r.cgi = GenCGIError(350, "Failed to parse mail.")
 		ReportError(err)
 		return ConvertToCGI(r.cgi)
 	}
 
-	// We could also receive a multipart form.
-	_ = r.request.ParseMultipartForm(-1)
+	if r.request.Form.Get("from") == "" || r.request.Form.Get("to") == "" {
+		(*r.writer).WriteHeader(http.StatusBadRequest)
+		return ""
+	}
 
-	message := r.request.Form.Get("stripped-text")
+	message := r.request.Form.Get("text")
 	if message == "" {
 		message = PlaceholderMessage
 	}
@@ -65,43 +68,47 @@ func inbound(r *Response) string {
 
 	subject := r.request.Form.Get("subject")
 
-	attachmentCountStr := r.request.Form.Get("attachment-count")
-	attachmentCount := 0
-	if attachmentCountStr != "" {
-		attachmentCount, err = strconv.Atoi(attachmentCountStr)
-		if err != nil {
-			(*r.writer).WriteHeader(http.StatusBadRequest)
-			ReportError(err)
-			return ""
-		}
+	type File struct {
+		Filename string `go:"filename"`
+		Charset  string `go:"charset"`
+		Type     string `go:"type"`
 	}
 
 	var attachment []byte
-	if attachmentCount > 0 {
-		// We only need to search for the first applicable attachment.
-		// In some cases we might encounter no message content but an attached message.
-		// As such, we must handle up to one image and one text.
-		for s, _ := range r.request.MultipartForm.File {
-			file, _, err := r.request.FormFile(s)
-			if err != nil {
+	attachmentInfo := make(map[string]File)
+	err = json.Unmarshal([]byte(r.request.Form.Get("attachment-info")), &attachmentInfo)
+	if err == nil {
+		hasImage := false
+		hasAttachedText := false
+
+		for name, _attachment := range attachmentInfo {
+			attachmentData, _, err := r.request.FormFile(name)
+			if errors.Is(err, http.ErrMissingFile) {
+				// We don't care if there's nothing, it'll just stay nil.
+			} else if err != nil {
 				(*r.writer).WriteHeader(http.StatusBadRequest)
 				ReportError(err)
 				return ""
-			}
+			} else {
+				if strings.Contains(_attachment.Type, "image") && hasImage == false {
+					attachment, err = io.ReadAll(attachmentData)
+					if err != nil {
+						(*r.writer).WriteHeader(http.StatusBadRequest)
+						ReportError(err)
+						return ""
+					}
+					hasImage = true
+				} else if strings.Contains(_attachment.Type, "text") && hasAttachedText == false && message == PlaceholderMessage {
+					attachedText, err := io.ReadAll(attachmentData)
+					message = string(attachedText)
+					if err != nil {
+						(*r.writer).WriteHeader(http.StatusBadRequest)
+						ReportError(err)
+						return ""
+					}
 
-			data, err := io.ReadAll(file)
-			if err != nil {
-				(*r.writer).WriteHeader(http.StatusInternalServerError)
-				ReportError(err)
-				return ""
-			}
-
-			contentType := http.DetectContentType(data)
-			if strings.Contains(contentType, "text/plain") && message == PlaceholderMessage {
-				message = string(data)
-			} else if strings.Contains(contentType, "image") && len(attachment) == 0 {
-				// We only want to copy the first image found.
-				attachment = data
+					hasAttachedText = true
+				}
 			}
 		}
 	}

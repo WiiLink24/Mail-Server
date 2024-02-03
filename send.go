@@ -101,7 +101,7 @@ func send(r *Response) string {
 					// precious API calls.
 
 					// Going back to my second comment, there was a moment where an attacker had the recipient
-					// as RC24, causing it to spam both our clients. As such we should block any RC24 recipients.
+					// as WiiLink, causing it to spam both our clients. As such we should block any WiiLink recipients.
 				} else if recipientMatch[2] == "rc24.xyz" {
 					wiiRecipients = append(wiiRecipients, recipientMatch[1])
 				} else {
@@ -164,16 +164,16 @@ func send(r *Response) string {
 		for _, recipient := range emailRecipients {
 			// PC Mail
 			// We currently utilize SendGrid, TODO: Use MailGun we get 20k messages/month
-			auth := smtp.PlainAuth("", "postmaster@rc24.xyz", config.MailGunKey, "smtp.mailgun.org")
+			auth := smtp.PlainAuth("", "apikey", config.SendGridKey, "smtp.sendgrid.net")
 			err = smtp.SendMail(
-				"smtp.mailgun.org:587",
+				"smtp.sendgrid.org:587",
 				auth,
 				fmt.Sprintf("%s@rc24.xyz", mlid),
 				[]string{recipient},
 				[]byte(parsedMail),
 			)
 			if err != nil {
-				r.cgi.AddMailResponse(index, 551, "MailGun error.")
+				r.cgi.AddMailResponse(index, 551, "Sendgrid error.")
 				ReportError(err)
 				didError = true
 				continue
