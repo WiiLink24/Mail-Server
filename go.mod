@@ -7,7 +7,6 @@ require (
 	github.com/WiiLink24/nwc24 v0.0.0-20230608020206-b86d9e90fb1d
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/getsentry/sentry-go v0.20.0
-	github.com/go-sql-driver/mysql v1.7.1
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/logrusorgru/aurora/v4 v4.0.0
 	golang.org/x/image v0.13.0
@@ -56,6 +55,6 @@ require (
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.12.1-0.20230815132531-74c255bcf846 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
-	google.golang.org/protobuf v1.30.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	inet.af/netaddr v0.0.0-20230525184311-b8eac61e914a // indirect
 )
