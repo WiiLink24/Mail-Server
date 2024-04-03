@@ -10,6 +10,11 @@ const CreateAccount = `INSERT INTO accounts (mlid, password, mlchkid) VALUES ($1
 
 func account(r *Response) string {
 	mlid := r.request.Form.Get("mlid")
+	if mlid == "" {
+		r.cgi = GenCGIError(610, "mlid not found")
+		return ConvertToCGI(r.cgi)
+	}
+
 	if !validateFriendCode(mlid[1:]) {
 		r.cgi = GenCGIError(610, "Invalid Wii Friend Code")
 		return ConvertToCGI(r.cgi)

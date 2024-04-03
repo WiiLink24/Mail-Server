@@ -54,6 +54,13 @@ func (r *Route) Handle() http.Handler {
 			}
 		}
 
+		if len(paths) < 3 {
+			// Invalid request. Should follow the format:
+			// ["", "cgi-bin", "account.cgi"]
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
 		// Ensure we can route to this action before processing.
 		// Search all registered actions and find a matching action.
 		var action Action
