@@ -15,7 +15,7 @@ const ValidatePassword = `SELECT password FROM accounts WHERE mlid = $1 AND pass
 
 // hashPassword hashes the mlchkid for usage in the database.
 func hashPassword(password string) string {
-	hashByte := sha512.Sum512(append(salt, []byte(password)...))
+	hashByte := sha512.Sum512([]byte(password))
 	return hex.EncodeToString(hashByte[:])
 }
 

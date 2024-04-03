@@ -47,7 +47,11 @@ func (r *Route) Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		paths := strings.Split(req.URL.Path, "/")
 		if req.Method == "POST" {
-			req.ParseForm()
+			err := req.ParseForm()
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
 		}
 
 		// Ensure we can route to this action before processing.
@@ -61,7 +65,7 @@ func (r *Route) Handle() http.Handler {
 
 		// Action is only properly populated if we found it previously.
 		if action.ActionName == "" && action.ServiceType == "" {
-			// printError(w, "Unknown action was passed.", http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 

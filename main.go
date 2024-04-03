@@ -21,7 +21,6 @@ var (
 	config    *Config
 	ctx       = context.Background()
 	flakeNode *snowflake.Node
-	salt      []byte
 	dataDog   *statsd.Client
 )
 
@@ -81,10 +80,7 @@ func main() {
 	// Ensure this Postgresql connection is valid.
 	defer pool.Close()
 
-	salt, err = os.ReadFile("salt.bin")
-	checkError(err)
-
-	fmt.Printf("Starting HTTP connection (0.0.0.0:80)...\nNot using the usual port for HTTP?\nBe sure to use a proxy, otherwise the Wii can't connect!\n")
+	fmt.Printf("Starting HTTP connection (%s)...\nNot using the usual port for HTTP?\nBe sure to use a proxy, otherwise the Wii can't connect!\n", config.Address)
 	r := NewRoute()
 	cgi := r.HandleGroup("cgi-bin")
 	{

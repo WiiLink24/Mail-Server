@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v4"
 	"strconv"
@@ -41,7 +42,7 @@ func check(r *Response) string {
 	password := hashPassword(mlchkid)
 	row := pool.QueryRow(ctx, DoesUserExist, password)
 	err := row.Scan(&mlid, &lastFlag)
-	if err == pgx.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		r.cgi = GenCGIError(321, "User does not exist.")
 		return ConvertToCGI(r.cgi)
 	} else if err != nil {

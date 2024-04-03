@@ -22,12 +22,12 @@ func account(r *Response) string {
 
 	// Password can be any length up to 32 characters. 16 seems like a good middle ground.
 	password := RandStringBytesMaskImprSrc(16)
-	passwordByte := sha512.Sum512(append(salt, []byte(password)...))
+	passwordByte := sha512.Sum512([]byte(password))
 	passwordHash := hex.EncodeToString(passwordByte[:])
 
 	// Mlchkid must be a string of 32 characters
 	mlchkid := RandStringBytesMaskImprSrc(32)
-	mlchkidByte := sha512.Sum512(append(salt, []byte(mlchkid)...))
+	mlchkidByte := sha512.Sum512([]byte(mlchkid))
 	mlchkidHash := hex.EncodeToString(mlchkidByte[:])
 
 	id, _ := strconv.ParseInt(mlid[1:], 10, 64)
