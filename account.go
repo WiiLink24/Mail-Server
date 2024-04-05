@@ -9,6 +9,12 @@ import (
 const CreateAccount = `INSERT INTO accounts (mlid, password, mlchkid) VALUES ($1, $2, $3)`
 
 func account(r *Response) string {
+	err := r.request.ParseForm()
+	if err != nil {
+		r.cgi = GenCGIError(350, "Failed to parse POST form.")
+		return ConvertToCGI(r.cgi)
+	}
+
 	mlid := r.request.Form.Get("mlid")
 	if mlid == "" {
 		r.cgi = GenCGIError(610, "mlid not found")

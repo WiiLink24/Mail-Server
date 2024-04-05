@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/smtp"
 	"regexp"
@@ -34,7 +35,7 @@ func send(r *Response) string {
 
 	mlid, password := parseSendAuth(r.request.Form.Get("mlid"))
 	err = validatePassword(mlid, password)
-	if err == ErrInvalidCredentials {
+	if errors.Is(err, ErrInvalidCredentials) {
 		r.cgi = GenCGIError(250, err.Error())
 		return ConvertToCGI(r.cgi)
 	} else if err != nil {
@@ -140,7 +141,7 @@ func send(r *Response) string {
 		for _, recipient := range wiiRecipients {
 			var exists bool
 			err := pool.QueryRow(ctx, RecipientExists, recipient[1:]).Scan(&exists)
-			if err != nil && err != sql.ErrNoRows {
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				r.cgi.AddMailResponse(index, 551, "Issue verifying recipient.")
 				ReportError(err)
 				didError = true

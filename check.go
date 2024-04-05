@@ -25,6 +25,12 @@ func check(r *Response) string {
 	(*r.writer).Header().Add("X-Wii-Download-Span", "10")
 	(*r.writer).Header().Add("Content-Type", "text/plain;charset=utf-8")
 
+	err := r.request.ParseForm()
+	if err != nil {
+		r.cgi = GenCGIError(350, "Failed to parse POST form.")
+		return ConvertToCGI(r.cgi)
+	}
+
 	mlchkid := r.request.Form.Get("mlchkid")
 	if mlchkid == "" {
 		r.cgi = GenCGIError(320, "Unable to find mlchkid.")
@@ -41,7 +47,7 @@ func check(r *Response) string {
 	var lastFlag string
 	password := hashPassword(mlchkid)
 	row := pool.QueryRow(ctx, DoesUserExist, password)
-	err := row.Scan(&mlid, &lastFlag)
+	err = row.Scan(&mlid, &lastFlag)
 	if errors.Is(err, pgx.ErrNoRows) {
 		r.cgi = GenCGIError(321, "User does not exist.")
 		return ConvertToCGI(r.cgi)

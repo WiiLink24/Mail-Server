@@ -1,15 +1,24 @@
 package main
 
-import "strconv"
+import (
+	"errors"
+	"strconv"
+)
 
 const DeleteSentMail = `DELETE FROM mail WHERE is_sent = true AND recipient = $1`
 
 func _delete(r *Response) string {
+	err := r.request.ParseForm()
+	if err != nil {
+		r.cgi = GenCGIError(350, "Failed to parse POST form.")
+		return ConvertToCGI(r.cgi)
+	}
+
 	mlid := r.request.Form.Get("mlid")
 	password := r.request.Form.Get("passwd")
 
-	err := validatePassword(mlid, password)
-	if err == ErrInvalidCredentials {
+	err = validatePassword(mlid, password)
+	if errors.Is(err, ErrInvalidCredentials) {
 		r.cgi = GenCGIError(250, err.Error())
 		ReportError(err)
 		return ConvertToCGI(r.cgi)

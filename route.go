@@ -46,12 +46,9 @@ func (r *RoutingGroup) Handle(action string, function func(*Response) string) {
 func (r *Route) Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		paths := strings.Split(req.URL.Path, "/")
-		if req.Method == "POST" {
-			err := req.ParseForm()
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
+		if req.Method != "POST" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
 		}
 
 		if len(paths) < 3 {
