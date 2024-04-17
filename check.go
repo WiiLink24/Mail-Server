@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	DoesUserExist    = `SELECT mlid, last_flag FROM accounts WHERE mlchkid = $1`
+	DoesUserExist    = `SELECT mlid FROM accounts WHERE mlchkid = $1`
 	DoesUserHaveMail = `SELECT EXISTS(SELECT 1 FROM mail WHERE recipient = $1 AND is_sent = false)`
-	InsertMailFlag   = `UPDATE accounts SET last_flag = $1 WHERE mlid = $2`
+	NoMailFlag       = "000000000000000000000000000000000"
 )
 
 // MailHMACKey is the key used to sign the HMAC.
@@ -44,10 +44,9 @@ func check(r *Response) string {
 	}
 
 	var mlid uint64
-	var lastFlag string
 	password := hashPassword(mlchkid)
 	row := pool.QueryRow(ctx, DoesUserExist, password)
-	err = row.Scan(&mlid, &lastFlag)
+	err = row.Scan(&mlid)
 	if errors.Is(err, pgx.ErrNoRows) {
 		r.cgi = GenCGIError(321, "User does not exist.")
 		return ConvertToCGI(r.cgi)
@@ -67,19 +66,10 @@ func check(r *Response) string {
 		return ConvertToCGI(r.cgi)
 	}
 
-	var mailFlag string
+	mailFlag := NoMailFlag
 	if hasMail {
-		mailFlag = RandStringBytesMaskImprSrc(22)
-
-		// Now insert the new flag.
-		_, err = pool.Exec(ctx, InsertMailFlag, mailFlag, mlid)
-		if err != nil {
-			r.cgi = GenCGIError(320, "Error has occurred in saving mail flag.")
-			ReportError(err)
-			return ConvertToCGI(r.cgi)
-		}
-	} else {
-		mailFlag = lastFlag
+		// Update mail flag
+		mailFlag = RandStringBytesMaskImprSrc(33)
 	}
 
 	h := hmac.New(sha1.New, MailHMACKey)
