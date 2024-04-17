@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/mail"
 	"strings"
+	"unicode/utf8"
 
 	// Importing as a side effect allows for the image library to check for these formats
 	_ "image/gif"
@@ -50,6 +51,9 @@ func inbound(r *Response) string {
 		message = PlaceholderMessage
 	}
 
+	// Sanitize the message
+	message = removeNonUTF8Characters(message)
+
 	fromRaw := r.request.Form.Get("from")
 	from, err := mail.ParseAddress(fromRaw)
 	if err != nil {
@@ -58,7 +62,7 @@ func inbound(r *Response) string {
 		return ""
 	}
 
-	toRaw := r.request.Form.Get("To")
+	toRaw := r.request.Form.Get("to")
 	to, err := mail.ParseAddress(toRaw)
 	if err != nil {
 		(*r.writer).WriteHeader(http.StatusBadRequest)
@@ -222,4 +226,16 @@ func resize(originalImage image.Image) image.Image {
 	// BiLinear mode is the slowest out of the available but offers highest quality.
 	draw.BiLinear.Scale(newImage, newImage.Bounds(), originalImage, originalImage.Bounds(), draw.Over, nil)
 	return newImage
+}
+
+func removeNonUTF8Characters(message string) string {
+	var buffer []byte
+
+	for _, r := range message {
+		if utf8.ValidRune(r) {
+			buffer = append(buffer, []byte(string(r))...)
+		}
+	}
+
+	return string(buffer)
 }
