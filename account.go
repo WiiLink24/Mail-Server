@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/sha512"
 	"encoding/hex"
-	"strconv"
 )
 
 const CreateAccount = `INSERT INTO accounts (mlid, password, mlchkid) VALUES ($1, $2, $3)`
@@ -41,9 +40,7 @@ func account(r *Response) string {
 	mlchkidByte := sha512.Sum512([]byte(mlchkid))
 	mlchkidHash := hex.EncodeToString(mlchkidByte[:])
 
-	id, _ := strconv.ParseInt(mlid[1:], 10, 64)
-
-	result, err := pool.Exec(ctx, CreateAccount, id, passwordHash, mlchkidHash)
+	result, err := pool.Exec(ctx, CreateAccount, mlid[1:], passwordHash, mlchkidHash)
 	if result.RowsAffected() == 0 {
 		r.cgi = GenCGIError(211, "Duplicate registration.")
 		return ConvertToCGI(r.cgi)
