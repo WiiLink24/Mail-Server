@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v4"
-	"strconv"
 )
 
 const (
@@ -43,7 +42,7 @@ func check(r *Response) string {
 		return ConvertToCGI(r.cgi)
 	}
 
-	var mlid uint64
+	var mlid string
 	password := hashPassword(mlchkid)
 	row := pool.QueryRow(ctx, DoesUserExist, password)
 	err = row.Scan(&mlid)
@@ -59,7 +58,7 @@ func check(r *Response) string {
 	// The flag we send to the Wii is compared against the flag in wc24send.ctl. If it matches, no new mail is available.
 	// If it doesn't, there is mail.
 	var hasMail bool
-	err = pool.QueryRow(ctx, DoesUserHaveMail, strconv.Itoa(int(mlid))).Scan(&hasMail)
+	err = pool.QueryRow(ctx, DoesUserHaveMail, mlid).Scan(&hasMail)
 	if err != nil {
 		r.cgi = GenCGIError(320, "Error has occurred checking for mail.")
 		ReportError(err)
