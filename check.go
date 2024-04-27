@@ -75,7 +75,7 @@ func check(r *Response) string {
 	h.Write([]byte(challenge))
 	h.Write([]byte("\n"))
 	// We don't store the Wii Friend Code in the database with the w. The hash requires it.
-	h.Write([]byte(fmt.Sprintf("w%016d", mlid)))
+	h.Write([]byte(fmt.Sprintf("w%s", mlid)))
 	h.Write([]byte("\n"))
 	h.Write([]byte(mailFlag))
 	h.Write([]byte("\n"))
