@@ -175,7 +175,7 @@ func send(r *Response) string {
 			)
 			if err != nil {
 				r.cgi.AddMailResponse(index, 551, "Sendgrid error.")
-				ReportError(err)
+				// ReportError(err)
 				didError = true
 				continue
 			}
@@ -185,9 +185,11 @@ func send(r *Response) string {
 			// If everything was successful we write that to the response.
 			r.cgi.AddMailResponse(index, 100, "Success.")
 
-			err = dataDog.Incr("mail.sent_mail", nil, 1)
-			if err != nil {
-				ReportError(err)
+			if config.UseDatadog {
+				err = dataDog.Incr("mail.sent_mail", nil, 1)
+				if err != nil {
+					ReportError(err)
+				}
 			}
 		}
 	}

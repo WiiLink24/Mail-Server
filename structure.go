@@ -34,4 +34,5 @@ type Config struct {
 	SQLDB       string   `xml:"SQLDB"`
 	SentryDSN   string   `xml:"SentryDSN"`
 	SendGridKey string   `xml:"SendGridKey"`
+	UseDatadog  bool     `xml:"UseDatadog"`
 }

@@ -49,22 +49,24 @@ func main() {
 	checkError(err)
 	defer sentry.Flush(2 * time.Second)
 
-	// Initialize DataDog
-	tracer.Start(
-		tracer.WithService("mail"),
-		tracer.WithEnv("prod"),
-		tracer.WithAgentAddr("127.0.0.1:8126"),
-	)
-	defer tracer.Stop()
+	if config.UseDatadog {
+		// Initialize DataDog
+		tracer.Start(
+			tracer.WithService("mail"),
+			tracer.WithEnv("prod"),
+			tracer.WithAgentAddr("127.0.0.1:8126"),
+		)
+		defer tracer.Stop()
 
-	err = profiler.Start(
-		profiler.WithService("mail"),
-		profiler.WithEnv("prod"),
-	)
-	checkError(err)
-	defer profiler.Stop()
+		err = profiler.Start(
+			profiler.WithService("mail"),
+			profiler.WithEnv("prod"),
+		)
+		checkError(err)
+		defer profiler.Stop()
 
-	dataDog, err = statsd.New("127.0.0.1:8125")
+		dataDog, err = statsd.New("127.0.0.1:8125")
+	}
 
 	// Initialize snowflake
 	flakeNode, err = snowflake.NewNode(1)

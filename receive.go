@@ -103,9 +103,11 @@ func receive(r *Response) string {
 		},
 	}
 
-	err = dataDog.Incr("mail.received_mail", nil, float64(numberOfMail))
-	if err != nil {
-		ReportError(err)
+	if config.UseDatadog {
+		err = dataDog.Incr("mail.received_mail", nil, float64(numberOfMail))
+		if err != nil {
+			ReportError(err)
+		}
 	}
 
 	return fmt.Sprint("--", boundary, "\r\n",

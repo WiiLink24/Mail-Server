@@ -57,9 +57,12 @@ func _delete(r *Response) string {
 		},
 	}
 
-	err = dataDog.Incr("mail.deleted_mail", nil, float64(intDelNum))
-	if err != nil {
-		ReportError(err)
+	if config.UseDatadog {
+		err = dataDog.Incr("mail.deleted_mail", nil, float64(intDelNum))
+		if err != nil {
+			ReportError(err)
+		}
 	}
+
 	return ConvertToCGI(r.cgi)
 }

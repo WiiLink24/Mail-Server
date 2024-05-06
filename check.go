@@ -100,9 +100,11 @@ func check(r *Response) string {
 		},
 	}
 
-	err = dataDog.Incr("mail.checked", nil, 1)
-	if err != nil {
-		ReportError(err)
+	if config.UseDatadog {
+		err = dataDog.Incr("mail.checked", nil, 1)
+		if err != nil {
+			ReportError(err)
+		}
 	}
 
 	return ConvertToCGI(r.cgi)
