@@ -98,5 +98,13 @@ func main() {
 		mailGun.Handle("inbound", inbound)
 	}
 
-	log.Fatal(http.ListenAndServe(config.Address, r.Handle()))
+	server := &http.Server{
+		Addr:         config.Address,
+		Handler:      r.Handle(),
+		ErrorLog:     log.New(os.Stdout, "Mail Server Error: ", log.Ldate|log.Ltime|log.Lshortfile),
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	log.Fatal(server.ListenAndServe())
 }
