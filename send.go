@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"net/http"
 	"net/smtp"
 	"regexp"
 	"strings"
@@ -23,42 +25,46 @@ const (
 	InsertMail      = `INSERT INTO mail (snowflake, data, sender, recipient, is_sent) VALUES ($1, $2, $3, $4, false)`
 )
 
-func send(r *Response) string {
-	(*r.writer).Header().Add("Content-Type", "text/plain;charset=utf-8")
+func send(c *gin.Context) {
+	c.Header("Content-Type", "text/plain;charset=utf-8")
 
-	err := r.request.ParseMultipartForm(-1)
-	if err != nil {
-		r.cgi = GenCGIError(350, "Failed to parse mail.")
-		ReportError(err)
-		return ConvertToCGI(r.cgi)
-	}
-
-	mlid, password := parseSendAuth(r.request.Form.Get("mlid"))
-	err = validatePassword(mlid, password)
+	mlid, password := parseSendAuth(c.PostForm("mlid"))
+	err := validatePassword(mlid, password)
 	if errors.Is(err, ErrInvalidCredentials) {
-		r.cgi = GenCGIError(250, err.Error())
-		return ConvertToCGI(r.cgi)
+		cgi := GenCGIError(250, err.Error())
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	} else if err != nil {
-		r.cgi = GenCGIError(551, "An error has occurred while querying the database.")
+		cgi := GenCGIError(551, "An error has occurred while querying the database.")
 		ReportError(err)
-		return ConvertToCGI(r.cgi)
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	}
 
 	mails := make(map[string]string)
 
-	for key, value := range r.request.MultipartForm.Value {
+	form, err := c.MultipartForm()
+	if err != nil {
+		cgi := GenCGIError(250, err.Error())
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
+	}
+
+	for key, value := range form.Value {
 		if mailFormKeyRegex.MatchString(key) {
 			mails[key] = value[0]
 		}
 	}
 
 	if len(mails) > 16 {
-		r.cgi = GenCGIError(351, "Too many messages were sent.")
-		return ConvertToCGI(r.cgi)
+		cgi := GenCGIError(351, "Too many messages were sent.")
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	}
 
-	r.cgi.code = 100
-	r.cgi.message = "Success."
+	cgi := new(CGIResponse)
+	cgi.code = 100
+	cgi.message = "Success."
 
 	for index, content := range mails {
 		var wiiRecipients []string
@@ -85,7 +91,7 @@ func send(r *Response) string {
 			senderMatch := fromRegex.FindStringSubmatch(line)
 			if senderMatch != nil {
 				if senderMatch[1] != mlid {
-					r.cgi.AddMailResponse(index, 350, "Attempted to impersonate another user.")
+					cgi.AddMailResponse(index, 350, "Attempted to impersonate another user.")
 					hasError = true
 					break
 				}
@@ -116,7 +122,7 @@ func send(r *Response) string {
 			senderMatch = fromRegexPayload.FindStringSubmatch(line)
 			if senderMatch != nil {
 				if senderMatch[1] != mlid {
-					r.cgi.AddMailResponse(index, 350, "Attempted to impersonate another user.")
+					cgi.AddMailResponse(index, 350, "Attempted to impersonate another user.")
 					hasError = true
 				}
 				break
@@ -142,7 +148,7 @@ func send(r *Response) string {
 			var exists bool
 			err := pool.QueryRow(ctx, RecipientExists, recipient[1:]).Scan(&exists)
 			if err != nil && !errors.Is(err, sql.ErrNoRows) {
-				r.cgi.AddMailResponse(index, 551, "Issue verifying recipient.")
+				cgi.AddMailResponse(index, 551, "Issue verifying recipient.")
 				ReportError(err)
 				didError = true
 				break
@@ -155,7 +161,7 @@ func send(r *Response) string {
 			// Finally insert!
 			_, err = pool.Exec(ctx, InsertMail, flakeNode.Generate(), parsedMail, mlid[1:], recipient[1:])
 			if err != nil {
-				r.cgi.AddMailResponse(index, 450, "Database error.")
+				cgi.AddMailResponse(index, 450, "Database error.")
 				ReportError(err)
 				didError = true
 				break
@@ -174,7 +180,7 @@ func send(r *Response) string {
 				[]byte(parsedMail),
 			)
 			if err != nil {
-				r.cgi.AddMailResponse(index, 551, "Sendgrid error.")
+				cgi.AddMailResponse(index, 551, "Sendgrid error.")
 				// ReportError(err)
 				didError = true
 				continue
@@ -183,7 +189,7 @@ func send(r *Response) string {
 
 		if !didError {
 			// If everything was successful we write that to the response.
-			r.cgi.AddMailResponse(index, 100, "Success.")
+			cgi.AddMailResponse(index, 100, "Success.")
 
 			if config.UseDatadog {
 				err = dataDog.Incr("mail.sent_mail", nil, 1)
@@ -194,5 +200,5 @@ func send(r *Response) string {
 		}
 	}
 
-	return ConvertToCGI(r.cgi)
+	c.String(http.StatusOK, ConvertToCGI(*cgi))
 }

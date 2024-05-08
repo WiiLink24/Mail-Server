@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4"
+	"net/http"
 )
 
 const (
@@ -18,41 +20,38 @@ const (
 // MailHMACKey is the key used to sign the HMAC.
 var MailHMACKey = []byte{0xce, 0x4c, 0xf2, 0x9a, 0x3d, 0x6b, 0xe1, 0xc2, 0x61, 0x91, 0x72, 0xb5, 0xcb, 0x29, 0x8c, 0x89, 0x72, 0xd4, 0x50, 0xad}
 
-func check(r *Response) string {
-	(*r.writer).Header().Add("X-Wii-Mail-Download-Span", "10")
-	(*r.writer).Header().Add("X-Wii-Mail-Check-Span", "10")
-	(*r.writer).Header().Add("X-Wii-Download-Span", "10")
-	(*r.writer).Header().Add("Content-Type", "text/plain;charset=utf-8")
+func check(c *gin.Context) {
+	c.Header("X-Wii-Mail-Download-Span", "10")
+	c.Header("X-Wii-Mail-Check-Span", "10")
+	c.Header("X-Wii-Download-Span", "10")
+	c.Header("Content-Type", "text/plain;charset=utf-8")
 
-	err := r.request.ParseForm()
-	if err != nil {
-		r.cgi = GenCGIError(350, "Failed to parse POST form.")
-		return ConvertToCGI(r.cgi)
-	}
-
-	mlchkid := r.request.Form.Get("mlchkid")
+	mlchkid := c.PostForm("mlchkid")
 	if mlchkid == "" {
-		r.cgi = GenCGIError(320, "Unable to find mlchkid.")
-		return ConvertToCGI(r.cgi)
+		cgi := GenCGIError(320, "Unable to find mlchkid.")
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	}
 
-	challenge := r.request.Form.Get("chlng")
+	challenge := c.PostForm("chlng")
 	if challenge == "" {
-		r.cgi = GenCGIError(320, "Unable to find chlng.")
-		return ConvertToCGI(r.cgi)
+		cgi := GenCGIError(320, "Unable to find chlng.")
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	}
 
 	var mlid string
 	password := hashPassword(mlchkid)
 	row := pool.QueryRow(ctx, DoesUserExist, password)
-	err = row.Scan(&mlid)
+	err := row.Scan(&mlid)
 	if errors.Is(err, pgx.ErrNoRows) {
-		r.cgi = GenCGIError(321, "User does not exist.")
-		return ConvertToCGI(r.cgi)
+		cgi := GenCGIError(321, "User does not exist.")
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	} else if err != nil {
-		r.cgi = GenCGIError(320, "Error has occurred in check query.")
-		ReportError(err)
-		return ConvertToCGI(r.cgi)
+		cgi := GenCGIError(320, "Error has occurred in check query.")
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	}
 
 	// The flag we send to the Wii is compared against the flag in wc24send.ctl. If it matches, no new mail is available.
@@ -60,9 +59,9 @@ func check(r *Response) string {
 	var hasMail bool
 	err = pool.QueryRow(ctx, DoesUserHaveMail, mlid).Scan(&hasMail)
 	if err != nil {
-		r.cgi = GenCGIError(320, "Error has occurred checking for mail.")
-		ReportError(err)
-		return ConvertToCGI(r.cgi)
+		cgi := GenCGIError(320, "Error has occurred checking for mail.")
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	}
 
 	mailFlag := NoMailFlag
@@ -81,7 +80,7 @@ func check(r *Response) string {
 	h.Write([]byte("\n"))
 	h.Write([]byte("10"))
 
-	r.cgi = CGIResponse{
+	cgi := CGIResponse{
 		code:    100,
 		message: "Success.",
 		other: []KV{
@@ -107,5 +106,5 @@ func check(r *Response) string {
 		}
 	}
 
-	return ConvertToCGI(r.cgi)
+	c.String(http.StatusOK, ConvertToCGI(cgi))
 }

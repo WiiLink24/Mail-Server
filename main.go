@@ -7,11 +7,11 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/bwmarrin/snowflake"
 	"github.com/getsentry/sentry-go"
+	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 	"log"
-	"net/http"
 	"os"
 	"time"
 )
@@ -83,28 +83,15 @@ func main() {
 	defer pool.Close()
 
 	fmt.Printf("Starting HTTP connection (%s)...\nNot using the usual port for HTTP?\nBe sure to use a proxy, otherwise the Wii can't connect!\n", config.Address)
-	r := NewRoute()
-	cgi := r.HandleGroup("cgi-bin")
-	{
-		cgi.Handle("check.cgi", check)
-		cgi.Handle("send.cgi", send)
-		cgi.Handle("receive.cgi", receive)
-		cgi.Handle("delete.cgi", _delete)
-		cgi.Handle("account.cgi", account)
-	}
+	gin.SetMode(gin.ReleaseMode)
+	g := gin.Default()
 
-	mailGun := r.HandleGroup("mail")
-	{
-		mailGun.Handle("inbound", inbound)
-	}
+	g.POST("/cgi-bin/check.cgi", check)
+	g.POST("/cgi-bin/send.cgi", send)
+	g.POST("/cgi-bin/receive.cgi", receive)
+	g.POST("/cgi-bin/delete.cgi", _delete)
+	g.POST("/cgi-bin/account.cgi", account)
+	g.POST("/mail/inbound", inbound)
 
-	server := &http.Server{
-		Addr:         config.Address,
-		Handler:      r.Handle(),
-		ErrorLog:     log.New(os.Stdout, "Mail Server Error: ", log.Ldate|log.Ltime|log.Lshortfile),
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
-
-	log.Fatal(server.ListenAndServe())
+	log.Fatalln(g.Run(config.Address))
 }

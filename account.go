@@ -3,32 +3,31 @@ package main
 import (
 	"crypto/sha512"
 	"encoding/hex"
+	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 const CreateAccount = `INSERT INTO accounts (mlid, password, mlchkid) VALUES ($1, $2, $3)`
 
-func account(r *Response) string {
-	err := r.request.ParseForm()
-	if err != nil {
-		r.cgi = GenCGIError(350, "Failed to parse POST form.")
-		return ConvertToCGI(r.cgi)
-	}
-
-	mlid := r.request.Form.Get("mlid")
+func account(c *gin.Context) {
+	mlid := c.PostForm("mlid")
 	if mlid == "" {
-		r.cgi = GenCGIError(610, "mlid not found")
-		return ConvertToCGI(r.cgi)
+		cgi := GenCGIError(610, "mlid not found")
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	}
 
 	if !validateFriendCode(mlid[1:]) {
-		r.cgi = GenCGIError(610, "Invalid Wii Friend Code")
-		return ConvertToCGI(r.cgi)
+		cgi := GenCGIError(610, "Invalid Wii Friend Code")
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	} else if mlid == "" {
-		r.cgi = GenCGIError(310, "Unable to parse parameters.")
-		return ConvertToCGI(r.cgi)
+		cgi := GenCGIError(310, "Unable to parse parameters.")
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	}
 
-	(*r.writer).Header().Add("Content-Type", "text/plain;charset=utf-8")
+	c.Header("Content-Type", "text/plain;charset=utf-8")
 
 	// Password can be any length up to 32 characters. 16 seems like a good middle ground.
 	password := RandStringBytesMaskImprSrc(16)
@@ -42,17 +41,19 @@ func account(r *Response) string {
 
 	result, err := pool.Exec(ctx, CreateAccount, mlid[1:], passwordHash, mlchkidHash)
 	if result.RowsAffected() == 0 {
-		r.cgi = GenCGIError(211, "Duplicate registration.")
-		return ConvertToCGI(r.cgi)
+		cgi := GenCGIError(211, "Duplicate registration.")
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	}
 
 	if err != nil {
-		r.cgi = GenCGIError(410, "An error has occurred while querying the database.")
+		cgi := GenCGIError(410, "An error has occurred while querying the database.")
 		ReportError(err)
-		return ConvertToCGI(r.cgi)
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	}
 
-	r.cgi = CGIResponse{
+	cgi := CGIResponse{
 		code:    100,
 		message: "Success.",
 		other: []KV{
@@ -71,5 +72,5 @@ func account(r *Response) string {
 		},
 	}
 
-	return ConvertToCGI(r.cgi)
+	c.String(http.StatusOK, ConvertToCGI(cgi))
 }
