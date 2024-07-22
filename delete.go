@@ -13,7 +13,7 @@ func _delete(c *gin.Context) {
 	mlid := c.PostForm("mlid")
 	password := c.PostForm("passwd")
 
-	err := validatePassword(mlid, password)
+	err := validatePassword(c.Copy(), mlid, password)
 	if errors.Is(err, ErrInvalidCredentials) {
 		cgi := GenCGIError(250, err.Error())
 		ReportError(err)
@@ -38,7 +38,7 @@ func _delete(c *gin.Context) {
 		return
 	}
 
-	_, err = pool.Exec(ctx, DeleteSentMail, mlid[1:])
+	_, err = pool.Exec(c.Copy(), DeleteSentMail, mlid[1:])
 	if err != nil {
 		cgi := GenCGIError(541, "An error has occurred while deleting the messages from the database.")
 		ReportError(err)

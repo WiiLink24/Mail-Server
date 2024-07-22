@@ -18,7 +18,7 @@ func receive(c *gin.Context) {
 	mlid := c.PostForm("mlid")
 	password := c.PostForm("passwd")
 
-	err := validatePassword(mlid, password)
+	err := validatePassword(c.Copy(), mlid, password)
 	if errors.Is(err, ErrInvalidCredentials) {
 		cgi := GenCGIError(250, err.Error())
 		ReportError(err)
@@ -38,7 +38,7 @@ func receive(c *gin.Context) {
 		return
 	}
 
-	mail, err := pool.Query(ctx, QueryMailToSend, mlid[1:])
+	mail, err := pool.Query(c.Copy(), QueryMailToSend, mlid[1:])
 	if err != nil {
 		cgi := GenCGIError(551, "An error has occurred while querying the database.")
 		ReportError(err)
@@ -78,7 +78,7 @@ func receive(c *gin.Context) {
 
 		mailSize += len(data)
 
-		_, err = pool.Exec(ctx, UpdateSentFlag, snowflake)
+		_, err = pool.Exec(c.Copy(), UpdateSentFlag, snowflake)
 		if err != nil {
 			ReportError(err)
 		}

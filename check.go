@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	"net/http"
 )
 
@@ -42,7 +42,7 @@ func check(c *gin.Context) {
 
 	var mlid string
 	password := hashPassword(mlchkid)
-	row := pool.QueryRow(ctx, DoesUserExist, password)
+	row := pool.QueryRow(c.Copy(), DoesUserExist, password)
 	err := row.Scan(&mlid)
 	if errors.Is(err, pgx.ErrNoRows) {
 		cgi := GenCGIError(321, "User does not exist.")
@@ -57,7 +57,7 @@ func check(c *gin.Context) {
 	// The flag we send to the Wii is compared against the flag in wc24send.ctl. If it matches, no new mail is available.
 	// If it doesn't, there is mail.
 	var hasMail bool
-	err = pool.QueryRow(ctx, DoesUserHaveMail, mlid).Scan(&hasMail)
+	err = pool.QueryRow(c.Copy(), DoesUserHaveMail, mlid).Scan(&hasMail)
 	if err != nil {
 		cgi := GenCGIError(320, "Error has occurred checking for mail.")
 		c.String(http.StatusOK, ConvertToCGI(cgi))

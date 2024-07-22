@@ -4,6 +4,8 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"net/http"
 )
 
@@ -21,10 +23,6 @@ func account(c *gin.Context) {
 		cgi := GenCGIError(610, "Invalid Wii Friend Code")
 		c.String(http.StatusOK, ConvertToCGI(cgi))
 		return
-	} else if mlid == "" {
-		cgi := GenCGIError(310, "Unable to parse parameters.")
-		c.String(http.StatusOK, ConvertToCGI(cgi))
-		return
 	}
 
 	c.Header("Content-Type", "text/plain;charset=utf-8")
@@ -39,14 +37,12 @@ func account(c *gin.Context) {
 	mlchkidByte := sha512.Sum512([]byte(mlchkid))
 	mlchkidHash := hex.EncodeToString(mlchkidByte[:])
 
-	result, err := pool.Exec(ctx, CreateAccount, mlid[1:], passwordHash, mlchkidHash)
-	if result.RowsAffected() == 0 {
+	_, err := pool.Exec(c.Copy(), CreateAccount, mlid[1:], passwordHash, mlchkidHash)
+	if pgerrcode.IsIntegrityConstraintViolation(err.(*pgconn.PgError).Code) {
 		cgi := GenCGIError(211, "Duplicate registration.")
 		c.String(http.StatusOK, ConvertToCGI(cgi))
 		return
-	}
-
-	if err != nil {
+	} else if err != nil {
 		cgi := GenCGIError(410, "An error has occurred while querying the database.")
 		ReportError(err)
 		c.String(http.StatusOK, ConvertToCGI(cgi))

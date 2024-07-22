@@ -29,7 +29,7 @@ func send(c *gin.Context) {
 	c.Header("Content-Type", "text/plain;charset=utf-8")
 
 	mlid, password := parseSendAuth(c.PostForm("mlid"))
-	err := validatePassword(mlid, password)
+	err := validatePassword(c.Copy(), mlid, password)
 	if errors.Is(err, ErrInvalidCredentials) {
 		cgi := GenCGIError(250, err.Error())
 		c.String(http.StatusOK, ConvertToCGI(cgi))
@@ -146,7 +146,7 @@ func send(c *gin.Context) {
 		var didError bool
 		for _, recipient := range wiiRecipients {
 			var exists bool
-			err := pool.QueryRow(ctx, RecipientExists, recipient[1:]).Scan(&exists)
+			err := pool.QueryRow(c.Copy(), RecipientExists, recipient[1:]).Scan(&exists)
 			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				cgi.AddMailResponse(index, 551, "Issue verifying recipient.")
 				ReportError(err)
@@ -159,7 +159,7 @@ func send(c *gin.Context) {
 			}
 
 			// Finally insert!
-			_, err = pool.Exec(ctx, InsertMail, flakeNode.Generate(), parsedMail, mlid[1:], recipient[1:])
+			_, err = pool.Exec(c.Copy(), InsertMail, flakeNode.Generate(), parsedMail, mlid[1:], recipient[1:])
 			if err != nil {
 				cgi.AddMailResponse(index, 450, "Database error.")
 				ReportError(err)

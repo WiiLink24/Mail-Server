@@ -8,7 +8,7 @@ import (
 	"github.com/bwmarrin/snowflake"
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"gopkg.in/DataDog/dd-trace-go.v1/profiler"
 	"log"
@@ -19,7 +19,6 @@ import (
 var (
 	pool      *pgxpool.Pool
 	config    *Config
-	ctx       = context.Background()
 	flakeNode *snowflake.Node
 	dataDog   *statsd.Client
 )
@@ -76,7 +75,7 @@ func main() {
 	dbString := fmt.Sprintf("postgres://%s:%s@%s/%s", config.SQLUser, config.SQLPass, config.SQLAddress, config.SQLDB)
 	dbConf, err := pgxpool.ParseConfig(dbString)
 	checkError(err)
-	pool, err = pgxpool.ConnectConfig(ctx, dbConf)
+	pool, err = pgxpool.NewWithConfig(context.Background(), dbConf)
 	checkError(err)
 
 	// Ensure this Postgresql connection is valid.
