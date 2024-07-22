@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha512"
 	"encoding/hex"
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -38,11 +39,16 @@ func account(c *gin.Context) {
 	mlchkidHash := hex.EncodeToString(mlchkidByte[:])
 
 	_, err := pool.Exec(c.Copy(), CreateAccount, mlid[1:], passwordHash, mlchkidHash)
-	if pgerrcode.IsIntegrityConstraintViolation(err.(*pgconn.PgError).Code) {
-		cgi := GenCGIError(211, "Duplicate registration.")
-		c.String(http.StatusOK, ConvertToCGI(cgi))
-		return
-	} else if err != nil {
+	if err != nil {
+		var v *pgconn.PgError
+		if errors.As(err, &v) {
+			if pgerrcode.IsIntegrityConstraintViolation(v.Code) {
+				cgi := GenCGIError(211, "Duplicate registration.")
+				c.String(http.StatusOK, ConvertToCGI(cgi))
+				return
+			}
+		}
+
 		cgi := GenCGIError(410, "An error has occurred while querying the database.")
 		ReportError(err)
 		c.String(http.StatusOK, ConvertToCGI(cgi))
