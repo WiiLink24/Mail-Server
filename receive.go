@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	QueryMailToSend = `SELECT snowflake, data FROM mail WHERE recipient = $1 AND is_sent = false ORDER BY snowflake`
+	QueryMailToSend = `SELECT snowflake, data FROM mail WHERE recipient = $1 AND is_sent = false ORDER BY snowflake LIMIT 10`
 	UpdateSentFlag  = `UPDATE mail SET is_sent = true WHERE snowflake = $1`
 )
 
@@ -18,7 +18,8 @@ func receive(c *gin.Context) {
 	mlid := c.PostForm("mlid")
 	password := c.PostForm("passwd")
 
-	err := validatePassword(c.Copy(), mlid, password)
+	ctx := c.Copy()
+	err := validatePassword(ctx, mlid, password)
 	if errors.Is(err, ErrInvalidCredentials) {
 		cgi := GenCGIError(250, err.Error())
 		ReportError(err)
@@ -38,7 +39,7 @@ func receive(c *gin.Context) {
 		return
 	}
 
-	mail, err := pool.Query(c.Copy(), QueryMailToSend, mlid[1:])
+	mail, err := pool.Query(ctx, QueryMailToSend, mlid[1:])
 	if err != nil {
 		cgi := GenCGIError(551, "An error has occurred while querying the database.")
 		ReportError(err)
@@ -47,7 +48,7 @@ func receive(c *gin.Context) {
 	}
 
 	mailSize := 0
-	mailToSend := ""
+	mailToSend := new(strings.Builder)
 	numberOfMail := 0
 
 	boundary := generateBoundary()
@@ -69,16 +70,16 @@ func receive(c *gin.Context) {
 		data = strings.Replace(data, "\n", "\r\n", -1)
 		data = strings.Replace(data, "\r\r\n", "\r\n", -1)
 		current := "\r\n--" + boundary + "\r\nContent-Type: text/plain\r\n\r\n" + data
-		if len(mailToSend)+len(current) > maxSize {
+		if mailToSend.Len()+len(current) > maxSize {
 			break
 		}
 
-		mailToSend += current
+		mailToSend.WriteString(current)
 		numberOfMail++
 
-		mailSize += len(data)
+		mailSize += len(current)
 
-		_, err = pool.Exec(c.Copy(), UpdateSentFlag, snowflake)
+		_, err = pool.Exec(ctx, UpdateSentFlag, snowflake)
 		if err != nil {
 			ReportError(err)
 		}
@@ -114,6 +115,6 @@ func receive(c *gin.Context) {
 		"Content-Type: text/plain\r\n\r\n",
 		"This part is ignored.\r\n\r\n\r\n\n",
 		ConvertToCGI(cgi),
-		mailToSend,
+		mailToSend.String(),
 		"\r\n--", boundary, "--\r\n"))
 }
