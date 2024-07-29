@@ -129,8 +129,8 @@ func send(c *gin.Context) {
 			parsedMail := content[msgIndex:]
 
 			parsedMail = strings.Replace(parsedMail,
-				fmt.Sprintf("%s@wii.com <mailto:%s@wii.com>", mlid, mlid),
-				fmt.Sprintf("%s@rc24.xyz <mailto:%s@rc24.xyz>", mlid, mlid),
+				"wii.com",
+				"rc24.xyz",
 				-1)
 
 			var didError bool
