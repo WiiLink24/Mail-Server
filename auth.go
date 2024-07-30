@@ -1,10 +1,11 @@
 package main
 
 import (
+	"context"
 	"crypto/sha512"
 	"encoding/hex"
 	"errors"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 )
 
 var (
@@ -37,7 +38,7 @@ func parseSendAuth(format string) (string, string) {
 	}
 }
 
-func validatePassword(mlid, password string) error {
+func validatePassword(ctx context.Context, mlid, password string) error {
 	if mlid == "" || password == "" {
 		return ErrInvalidCredentials
 	}

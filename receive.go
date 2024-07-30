@@ -3,55 +3,56 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"net/http"
 	"strconv"
 	"strings"
 )
 
 const (
-	QueryMailToSend = `SELECT snowflake, data FROM mail WHERE recipient = $1 AND is_sent = false ORDER BY snowflake`
+	QueryMailToSend = `SELECT snowflake, data FROM mail WHERE recipient = $1 AND is_sent = false ORDER BY snowflake LIMIT 10`
 	UpdateSentFlag  = `UPDATE mail SET is_sent = true WHERE snowflake = $1`
 )
 
-func receive(r *Response) string {
-	err := r.request.ParseForm()
-	if err != nil {
-		r.cgi = GenCGIError(350, "Failed to parse POST form.")
-		return ConvertToCGI(r.cgi)
-	}
+func receive(c *gin.Context) {
+	mlid := c.PostForm("mlid")
+	password := c.PostForm("passwd")
 
-	mlid := r.request.Form.Get("mlid")
-	password := r.request.Form.Get("passwd")
-
-	err = validatePassword(mlid, password)
+	ctx := c.Copy()
+	err := validatePassword(ctx, mlid, password)
 	if errors.Is(err, ErrInvalidCredentials) {
-		r.cgi = GenCGIError(250, err.Error())
+		cgi := GenCGIError(250, err.Error())
 		ReportError(err)
-		return ConvertToCGI(r.cgi)
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	} else if err != nil {
-		r.cgi = GenCGIError(551, "An error has occurred while querying the database.")
+		cgi := GenCGIError(551, "An error has occurred while querying the database.")
 		ReportError(err)
-		return ConvertToCGI(r.cgi)
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	}
 
-	maxSize, err := strconv.Atoi(r.request.Form.Get("maxsize"))
+	maxSize, err := strconv.Atoi(c.PostForm("maxsize"))
 	if err != nil {
-		r.cgi = GenCGIError(330, "maxsize needs to be an int.")
-		return ConvertToCGI(r.cgi)
+		cgi := GenCGIError(330, "maxsize needs to be an int.")
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	}
 
 	mail, err := pool.Query(ctx, QueryMailToSend, mlid[1:])
 	if err != nil {
-		r.cgi = GenCGIError(551, "An error has occurred while querying the database.")
+		cgi := GenCGIError(551, "An error has occurred while querying the database.")
 		ReportError(err)
-		return ConvertToCGI(r.cgi)
+		c.String(http.StatusOK, ConvertToCGI(cgi))
+		return
 	}
 
 	mailSize := 0
-	mailToSend := ""
+	mailToSend := new(strings.Builder)
 	numberOfMail := 0
 
 	boundary := generateBoundary()
-	(*r.writer).Header().Add("Content-Type", fmt.Sprintf("multipart/mixed; boundary=%s", boundary))
+	c.Header("Content-Type", fmt.Sprintf("multipart/mixed; boundary=%s", boundary))
 
 	defer mail.Close()
 	for mail.Next() {
@@ -69,14 +70,14 @@ func receive(r *Response) string {
 		data = strings.Replace(data, "\n", "\r\n", -1)
 		data = strings.Replace(data, "\r\r\n", "\r\n", -1)
 		current := "\r\n--" + boundary + "\r\nContent-Type: text/plain\r\n\r\n" + data
-		if len(mailToSend)+len(current) > maxSize {
+		if mailToSend.Len()+len(current) > maxSize {
 			break
 		}
 
-		mailToSend += current
+		mailToSend.WriteString(current)
 		numberOfMail++
 
-		mailSize += len(data)
+		mailSize += len(current)
 
 		_, err = pool.Exec(ctx, UpdateSentFlag, snowflake)
 		if err != nil {
@@ -84,7 +85,7 @@ func receive(r *Response) string {
 		}
 	}
 
-	r.cgi = CGIResponse{
+	cgi := CGIResponse{
 		code:    100,
 		message: "Success.",
 		other: []KV{
@@ -110,10 +111,10 @@ func receive(r *Response) string {
 		}
 	}
 
-	return fmt.Sprint("--", boundary, "\r\n",
+	c.String(http.StatusOK, fmt.Sprint("--", boundary, "\r\n",
 		"Content-Type: text/plain\r\n\r\n",
 		"This part is ignored.\r\n\r\n\r\n\n",
-		ConvertToCGI(r.cgi),
-		mailToSend,
-		"\r\n--", boundary, "--\r\n")
+		ConvertToCGI(cgi),
+		mailToSend.String(),
+		"\r\n--", boundary, "--\r\n"))
 }

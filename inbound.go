@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"golang.org/x/image/draw"
 	"image"
 	"image/jpeg"
@@ -33,20 +34,13 @@ const (
 	MaxMailSize = 1578040
 )
 
-func inbound(r *Response) string {
-	err := r.request.ParseMultipartForm(-1)
-	if err != nil {
-		r.cgi = GenCGIError(350, "Failed to parse mail.")
-		ReportError(err)
-		return ConvertToCGI(r.cgi)
+func inbound(c *gin.Context) {
+	if c.PostForm("from") == "" || c.PostForm("to") == "" {
+		c.String(http.StatusBadRequest, "")
+		return
 	}
 
-	if r.request.Form.Get("from") == "" || r.request.Form.Get("to") == "" {
-		(*r.writer).WriteHeader(http.StatusBadRequest)
-		return ""
-	}
-
-	message := r.request.Form.Get("text")
+	message := c.PostForm("text")
 	if message == "" {
 		message = PlaceholderMessage
 	}
@@ -54,23 +48,23 @@ func inbound(r *Response) string {
 	// Sanitize the message
 	message = removeNonUTF8Characters(message)
 
-	fromRaw := r.request.Form.Get("from")
+	fromRaw := c.PostForm("from")
 	from, err := mail.ParseAddress(fromRaw)
 	if err != nil {
-		(*r.writer).WriteHeader(http.StatusBadRequest)
 		ReportError(err)
-		return ""
+		c.String(http.StatusBadRequest, "")
+		return
 	}
 
-	toRaw := r.request.Form.Get("to")
+	toRaw := c.PostForm("to")
 	to, err := mail.ParseAddress(toRaw)
 	if err != nil {
-		(*r.writer).WriteHeader(http.StatusBadRequest)
 		ReportError(err)
-		return ""
+		c.String(http.StatusBadRequest, "")
+		return
 	}
 
-	subject := r.request.Form.Get("subject")
+	subject := c.PostForm("subject")
 
 	type File struct {
 		Filename string `go:"filename"`
@@ -80,35 +74,46 @@ func inbound(r *Response) string {
 
 	var attachment []byte
 	attachmentInfo := make(map[string]File)
-	err = json.Unmarshal([]byte(r.request.Form.Get("attachment-info")), &attachmentInfo)
+	err = json.Unmarshal([]byte(c.PostForm("attachment-info")), &attachmentInfo)
 	if err == nil {
 		hasImage := false
 		hasAttachedText := false
 
 		for name, _attachment := range attachmentInfo {
-			attachmentData, _, err := r.request.FormFile(name)
+			attachmentHeader, err := c.FormFile(name)
 			if errors.Is(err, http.ErrMissingFile) {
 				// We don't care if there's nothing, it'll just stay nil.
 			} else if err != nil {
-				(*r.writer).WriteHeader(http.StatusBadRequest)
 				ReportError(err)
-				return ""
+				c.String(http.StatusInternalServerError, "")
+				return
 			} else {
 				if strings.Contains(_attachment.Type, "image") && hasImage == false {
+					attachmentData, err := attachmentHeader.Open()
+					if err != nil {
+						c.String(http.StatusInternalServerError, "")
+						return
+					}
+
 					attachment, err = io.ReadAll(attachmentData)
 					if err != nil {
-						(*r.writer).WriteHeader(http.StatusBadRequest)
-						ReportError(err)
-						return ""
+						c.String(http.StatusInternalServerError, "")
+						return
 					}
+
 					hasImage = true
 				} else if strings.Contains(_attachment.Type, "text") && hasAttachedText == false && message == PlaceholderMessage {
+					attachmentData, err := attachmentHeader.Open()
+					if err != nil {
+						c.String(http.StatusInternalServerError, "")
+						return
+					}
+
 					attachedText, err := io.ReadAll(attachmentData)
 					message = string(attachedText)
 					if err != nil {
-						(*r.writer).WriteHeader(http.StatusBadRequest)
-						ReportError(err)
-						return ""
+						c.String(http.StatusInternalServerError, "")
+						return
 					}
 
 					hasAttachedText = true
@@ -119,22 +124,19 @@ func inbound(r *Response) string {
 
 	formulatedMail, err := formulateMessage(from.Address, to.Address, subject, message, attachment)
 	if err != nil {
-		(*r.writer).WriteHeader(http.StatusInternalServerError)
-		ReportError(err)
-		return ""
+		c.String(http.StatusInternalServerError, "")
+		return
 	}
 
 	// We can do pretty much the exact same thing as the Wii send endpoint
 	parsedWiiNumber := strings.Split(to.Address, "@")[0]
-	_, err = pool.Exec(ctx, InsertMail, flakeNode.Generate(), formulatedMail, from.Address, parsedWiiNumber[1:])
+	_, err = pool.Exec(c.Copy(), InsertMail, flakeNode.Generate(), formulatedMail, from.Address, parsedWiiNumber[1:])
 	if err != nil {
-		(*r.writer).WriteHeader(http.StatusInternalServerError)
-		ReportError(err)
-		return ""
+		c.String(http.StatusInternalServerError, "")
+		return
 	}
 
-	(*r.writer).WriteHeader(http.StatusOK)
-	return ""
+	c.String(http.StatusOK, "")
 }
 
 func formulateMessage(from, to, subject, body string, attachment []byte) (string, error) {
