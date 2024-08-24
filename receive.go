@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/logrusorgru/aurora/v4"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -18,7 +22,10 @@ func receive(c *gin.Context) {
 	mlid := c.PostForm("mlid")
 	password := c.PostForm("passwd")
 
-	ctx := c.Copy()
+	// Queries can take extremely long and eat up memory. Prevent this by enforcing a timeout.
+	ctx, cancel := context.WithTimeout(c.Copy(), 10*time.Second)
+	defer cancel()
+
 	err := validatePassword(ctx, mlid, password)
 	if errors.Is(err, ErrInvalidCredentials) {
 		cgi := GenCGIError(250, err.Error())
@@ -44,6 +51,11 @@ func receive(c *gin.Context) {
 		cgi := GenCGIError(551, "An error has occurred while querying the database.")
 		ReportError(err)
 		c.String(http.StatusOK, ConvertToCGI(cgi))
+
+		// Determine if this was a timeout error and log if so.
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			log.Printf("%s %s.", aurora.BgBrightYellow("Database query timed out for Wii"), mlid)
+		}
 		return
 	}
 
