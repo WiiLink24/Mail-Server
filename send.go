@@ -155,8 +155,7 @@ func send(c *gin.Context) {
 				break
 			} else if !exists {
 				// Account doesn't exist, ignore
-				didError = true
-				break
+				continue
 			}
 
 			// Finally insert!
@@ -182,7 +181,7 @@ func send(c *gin.Context) {
 			)
 			if err != nil {
 				cgi.AddMailResponse(index, 551, "Sendgrid error.")
-				// ReportError(err)
+				ReportError(err)
 				didError = true
 				continue
 			}
