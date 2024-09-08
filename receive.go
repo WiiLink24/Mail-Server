@@ -93,6 +93,10 @@ func receive(c *gin.Context) {
 
 		_, err = pool.Exec(ctx, UpdateSentFlag, snowflake)
 		if err != nil {
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				log.Printf("%s %s.", aurora.BgBrightYellow("Database query timed out for Wii"), mlid)
+			}
+
 			ReportError(err)
 		}
 	}
