@@ -77,6 +77,19 @@ func receive(c *gin.Context) {
 			continue
 		}
 
+		// Set the flag before adding the message.
+		// In previous versions the update would time out causing the flag to never be set, while the message still
+		// sends.
+		_, err = pool.Exec(ctx, UpdateSentFlag, snowflake)
+		if err != nil {
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				log.Printf("%s %d.", aurora.BgBrightYellow("Toggling update flag failed for message"), snowflake)
+			}
+
+			ReportError(err)
+			continue
+		}
+
 		// Upon testing with Doujinsoft, I realized that the Wii expects Windows (CRLF) newlines,
 		// and will reject UNIX (LF) newlines.
 		data = strings.Replace(data, "\n", "\r\n", -1)
@@ -90,15 +103,6 @@ func receive(c *gin.Context) {
 		numberOfMail++
 
 		mailSize += len(current)
-
-		_, err = pool.Exec(ctx, UpdateSentFlag, snowflake)
-		if err != nil {
-			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				log.Printf("%s %s.", aurora.BgBrightYellow("Database query timed out for Wii"), mlid)
-			}
-
-			ReportError(err)
-		}
 	}
 
 	cgi := CGIResponse{
