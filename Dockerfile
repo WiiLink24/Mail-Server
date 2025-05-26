@@ -17,6 +17,6 @@ COPY *.go ./
 # Build to name "app".
 RUN go build -o app .
 
-EXPOSE 53567
+EXPOSE 6666
 # Wait until there's an actual MySQL connection we can use to start.
 CMD ["./app"]
