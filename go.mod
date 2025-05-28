@@ -16,6 +16,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.61.0
 	go.opentelemetry.io/otel v1.36.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.36.0
+	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.36.0
 	go.opentelemetry.io/otel/sdk v1.36.0
 	golang.org/x/image v0.13.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.59.1
