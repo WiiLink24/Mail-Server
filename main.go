@@ -14,6 +14,8 @@ import (
 	"log"
 	"os"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 var (
@@ -67,6 +69,8 @@ func main() {
 		dataDog, err = statsd.New("127.0.0.1:8125")
 	}
 
+	
+
 	// Initialize snowflake
 	flakeNode, err = snowflake.NewNode(1)
 	checkError(err)
@@ -84,6 +88,20 @@ func main() {
 	fmt.Printf("Starting HTTP connection (%s)...\nNot using the usual port for HTTP?\nBe sure to use a proxy, otherwise the Wii can't connect!\n", config.Address)
 	gin.SetMode(gin.ReleaseMode)
 	g := gin.Default()
+
+	if config.UseOTLP {
+		tp, err := initTracer(config)
+		if err != nil {
+			log.Fatalf("Failed to initialize tracer: %v", err)
+		}
+		defer func() {
+			if err := tp.Shutdown(context.Background()); err != nil {
+				log.Printf("Error shutting down tracer provider: %v", err)
+			}
+		}()
+
+		g.Use(otelgin.Middleware("wii-mail", otelgin.WithTracerProvider(tp)))
+	}
 
 	g.POST("/cgi-bin/check.cgi", check)
 	g.POST("/cgi-bin/send.cgi", send)
