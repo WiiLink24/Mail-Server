@@ -35,4 +35,6 @@ type Config struct {
 	SentryDSN   string   `xml:"SentryDSN"`
 	SendGridKey string   `xml:"SendGridKey"`
 	UseDatadog  bool     `xml:"UseDatadog"`
+	UseOTLP    bool     `xml:"UseOTLP"`
+	OTLPEndpoint string   `xml:"OTLPEndpoint"`
 }
