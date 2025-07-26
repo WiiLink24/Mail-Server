@@ -170,17 +170,17 @@ func send(c *gin.Context) {
 
 		for _, recipient := range emailRecipients {
 			// PC Mail
-			// We currently utilize SendGrid.
-			auth := smtp.PlainAuth("", "apikey", config.SendGridKey, "smtp.sendgrid.net")
+			// Production utilizes Amazon SES.
+			auth := smtp.PlainAuth("", config.SMTPUsername, config.SMTPPassword, config.SMTPHost)
 			err = smtp.SendMail(
-				"smtp.sendgrid.net:587",
+				fmt.Sprintf("%s:587", config.SMTPHost),
 				auth,
 				fmt.Sprintf("%s@rc24.xyz", mlid),
 				[]string{recipient},
 				[]byte(parsedMail),
 			)
 			if err != nil {
-				cgi.AddMailResponse(index, 551, "Sendgrid error.")
+				cgi.AddMailResponse(index, 551, "SMTP error.")
 				ReportError(err)
 				didError = true
 				continue

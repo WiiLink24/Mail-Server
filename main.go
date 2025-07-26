@@ -69,8 +69,6 @@ func main() {
 		dataDog, err = statsd.New("127.0.0.1:8125")
 	}
 
-	
-
 	// Initialize snowflake
 	flakeNode, err = snowflake.NewNode(1)
 	checkError(err)
@@ -108,7 +106,7 @@ func main() {
 	g.POST("/cgi-bin/receive.cgi", receive)
 	g.POST("/cgi-bin/delete.cgi", _delete)
 	g.POST("/cgi-bin/account.cgi", account)
-	g.POST("/mail/inbound", inbound)
+	// g.POST("/mail/inbound", inbound)
 
 	log.Fatalln(g.Run(config.Address))
 }

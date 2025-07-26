@@ -26,15 +26,17 @@ type KV struct {
 }
 
 type Config struct {
-	XMLName     xml.Name `xml:"Config"`
-	Address     string   `xml:"Address"`
-	SQLAddress  string   `xml:"SQLAddress"`
-	SQLUser     string   `xml:"SQLUser"`
-	SQLPass     string   `xml:"SQLPass"`
-	SQLDB       string   `xml:"SQLDB"`
-	SentryDSN   string   `xml:"SentryDSN"`
-	SendGridKey string   `xml:"SendGridKey"`
-	UseDatadog  bool     `xml:"UseDatadog"`
-	UseOTLP    bool     `xml:"UseOTLP"`
+	XMLName      xml.Name `xml:"Config"`
+	Address      string   `xml:"Address"`
+	SQLAddress   string   `xml:"SQLAddress"`
+	SQLUser      string   `xml:"SQLUser"`
+	SQLPass      string   `xml:"SQLPass"`
+	SQLDB        string   `xml:"SQLDB"`
+	SentryDSN    string   `xml:"SentryDSN"`
+	SMTPUsername string   `xml:"SMTPUsername"`
+	SMTPPassword string   `xml:"SMTPPassword"`
+	SMTPHost     string   `xml:"SMTPHost"`
+	UseDatadog   bool     `xml:"UseDatadog"`
+	UseOTLP      bool     `xml:"UseOTLP"`
 	OTLPEndpoint string   `xml:"OTLPEndpoint"`
 }
