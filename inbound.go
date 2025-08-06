@@ -4,21 +4,24 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"golang.org/x/image/draw"
 	"image"
 	"image/jpeg"
 	"io"
-	"net/http"
+	"log"
+	"mime"
+	"mime/multipart"
 	"net/mail"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	// Importing as a side effect allows for the image library to check for these formats
 	_ "image/gif"
+	_ "image/jpeg"
 	_ "image/png"
 
 	_ "golang.org/x/image/bmp"
@@ -34,125 +37,170 @@ const (
 	MaxMailSize = 1578040
 )
 
-func inbound(c *gin.Context) {
-	if c.PostForm("from") == "" || c.PostForm("to") == "" {
-		c.String(http.StatusBadRequest, "")
-		return
-	}
+type Message struct {
+	Attachment []byte
+	Text       string
+}
 
-	message := c.PostForm("text")
-	if message == "" {
-		message = PlaceholderMessage
-	}
+func readMultipartMessage(message io.Reader, boundary string) (*Message, error) {
+	multipartReader := multipart.NewReader(message, boundary)
 
-	// Sanitize the message
-	message = removeNonUTF8Characters(message)
+	var msg Message
+	for {
+		p, err := multipartReader.NextPart()
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return nil, err
+		}
 
-	fromRaw := c.PostForm("from")
-	from, err := mail.ParseAddress(fromRaw)
-	if err != nil {
-		ReportError(err)
-		c.String(http.StatusBadRequest, "")
-		return
-	}
+		contentType := p.Header.Get("Content-Type")
+		contentTransferEncoding := p.Header.Get("Content-Transfer-Encoding")
 
-	toRaw := c.PostForm("to")
-	to, err := mail.ParseAddress(toRaw)
-	if err != nil {
-		ReportError(err)
-		c.String(http.StatusBadRequest, "")
-		return
-	}
+		body, err := io.ReadAll(p)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	subject := c.PostForm("subject")
-
-	type File struct {
-		Filename string `go:"filename"`
-		Charset  string `go:"charset"`
-		Type     string `go:"type"`
-	}
-
-	var attachment []byte
-	attachmentInfo := make(map[string]File)
-	err = json.Unmarshal([]byte(c.PostForm("attachment-info")), &attachmentInfo)
-	if err == nil {
-		hasImage := false
-		hasAttachedText := false
-
-		for name, _attachment := range attachmentInfo {
-			attachmentHeader, err := c.FormFile(name)
-			if errors.Is(err, http.ErrMissingFile) {
-				// We don't care if there's nothing, it'll just stay nil.
-			} else if err != nil {
-				ReportError(err)
-				c.String(http.StatusInternalServerError, "")
-				return
-			} else {
-				if strings.Contains(_attachment.Type, "image") && hasImage == false {
-					attachmentData, err := attachmentHeader.Open()
-					if err != nil {
-						c.String(http.StatusInternalServerError, "")
-						return
-					}
-
-					attachment, err = io.ReadAll(attachmentData)
-					if err != nil {
-						c.String(http.StatusInternalServerError, "")
-						return
-					}
-
-					hasImage = true
-				} else if strings.Contains(_attachment.Type, "text") && hasAttachedText == false && message == PlaceholderMessage {
-					attachmentData, err := attachmentHeader.Open()
-					if err != nil {
-						c.String(http.StatusInternalServerError, "")
-						return
-					}
-
-					attachedText, err := io.ReadAll(attachmentData)
-					message = string(attachedText)
-					if err != nil {
-						c.String(http.StatusInternalServerError, "")
-						return
-					}
-
-					hasAttachedText = true
-				}
+		// Decode base64 if needed
+		if strings.ToLower(contentTransferEncoding) == "base64" {
+			body, err = base64.StdEncoding.DecodeString(string(body))
+			if err != nil {
+				log.Fatalf("Error decoding base64: %v", err)
 			}
+		}
+
+		if strings.HasPrefix(contentType, "image/") {
+			msg.Attachment = body
+		} else if strings.HasPrefix(contentType, "text/") {
+			msg.Text = removeNonUTF8Characters(string(body))
+		} else {
+			// We can't handle this, discard.
+			continue
 		}
 	}
 
-	formulatedMail, err := formulateMessage(from.Address, to.Address, subject, message, attachment)
+	return &msg, nil
+}
+
+func processInbound() {
+	firstRun := true
+	for {
+		// Process immediately on boot.
+		if !firstRun {
+			// We want to do all our AWS operations every 30 minutes.
+			time.Sleep(30 * time.Minute)
+		}
+
+		firstRun = false
+
+		// Get all mail in the bucket.
+		objects, err := GetObjects()
+		if err != nil {
+			ReportError(err)
+			continue
+		}
+
+		for _, object := range objects {
+			// Download the mail.
+			objectData, err := DownloadObject(object)
+			if err != nil {
+				ReportError(err)
+				continue
+			}
+
+			// Save to our server in a format the Wii can understand.
+			err = readMessage(objectData)
+			if err != nil {
+				ReportError(err)
+				continue
+			}
+
+			// Finally delete.
+			err = DeleteObject(object)
+			if err != nil {
+				ReportError(err)
+			}
+		}
+	}
+}
+
+func readMessage(email *s3.GetObjectOutput) error {
+	// Parse the mail message
+	defer email.Body.Close()
+	msg, err := mail.ReadMessage(email.Body)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "")
-		return
+		log.Fatal(err)
+	}
+
+	fromRaw := msg.Header.Get("From")
+	from, err := mail.ParseAddress(fromRaw)
+	if err != nil {
+		return err
+	}
+
+	toRaw := msg.Header.Get("To")
+	to, err := mail.ParseAddress(toRaw)
+	if err != nil {
+		return err
+	}
+
+	subject := msg.Header.Get("Subject")
+
+	mediaType, params, err := mime.ParseMediaType(msg.Header.Get("Content-Type"))
+	if err != nil {
+		return err
+	}
+
+	parts := &Message{}
+	if strings.HasPrefix(mediaType, "multipart/") {
+		parts, err = readMultipartMessage(msg.Body, params["boundary"])
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else if strings.HasPrefix(mediaType, "text/") {
+		// Body should be the message.
+		msgBytes, err := io.ReadAll(msg.Body)
+		if err != nil {
+			return err
+		}
+
+		parts.Text = removeNonUTF8Characters(string(msgBytes))
+	}
+
+	if parts.Text == "" {
+		parts.Text = PlaceholderMessage
+	}
+
+	formulatedMail, err := formulateMessage(from.Address, to.Address, subject, parts)
+	if err != nil {
+		return err
 	}
 
 	// We can do pretty much the exact same thing as the Wii send endpoint
 	parsedWiiNumber := strings.Split(to.Address, "@")[0]
-	_, err = pool.Exec(c.Copy(), InsertMail, flakeNode.Generate(), formulatedMail, from.Address, parsedWiiNumber[1:])
+	_, err = pool.Exec(ctx, InsertMail, flakeNode.Generate(), formulatedMail, from.Address, parsedWiiNumber[1:])
 	if err != nil {
-		c.String(http.StatusInternalServerError, "")
-		return
+		return err
 	}
 
-	c.String(http.StatusOK, "")
+	return nil
 }
 
-func formulateMessage(from, to, subject, body string, attachment []byte) (string, error) {
+func formulateMessage(from, to, subject string, msg *Message) (string, error) {
 	boundary := generateBoundary()
 
 	header := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"%s\"\r\n\r\n--%s\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Description: wiimail\r\n\r\n",
 		from, to, subject, boundary, boundary)
 
-	content := fmt.Sprint(header, body, strings.Repeat("\r\n", 3), "--", boundary, "--")
+	content := fmt.Sprint(header, msg.Text, strings.Repeat("\r\n", 3), "--", boundary, "--")
 
 	// If there is no attachment, we are done here.
-	if attachment == nil {
+	if msg.Attachment == nil {
 		return content, nil
 	}
 
-	decodedImage, _, err := image.Decode(bytes.NewReader(attachment))
+	decodedImage, _, err := image.Decode(bytes.NewReader(msg.Attachment))
 	if err != nil {
 		return content, nil
 	}
@@ -188,7 +236,7 @@ func formulateMessage(from, to, subject, body string, attachment []byte) (string
 	}
 
 	return fmt.Sprint(header,
-		body,
+		msg.Text,
 		strings.Repeat("\r\n", 3),
 		"--", boundary, "\r\n",
 		// Now we can put our image data.

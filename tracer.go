@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"go.opentelemetry.io/otel"
@@ -13,7 +12,7 @@ import (
 func initTracer(config *Config) (*sdktrace.TracerProvider, error) {
 	// Create OTLP HTTP exporter for OpenTelemetry Collector
 	otlpExporter, err := otlptracehttp.New(
-		context.Background(),
+		ctx,
 		otlptracehttp.WithEndpoint(config.OTLPEndpoint),
 		otlptracehttp.WithInsecure(),
 	)

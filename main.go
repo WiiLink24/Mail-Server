@@ -5,6 +5,9 @@ import (
 	"encoding/xml"
 	"fmt"
 	"github.com/DataDog/datadog-go/v5/statsd"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bwmarrin/snowflake"
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
@@ -19,6 +22,8 @@ import (
 )
 
 var (
+	s3Client  *s3.Client
+	ctx       = context.Background()
 	pool      *pgxpool.Pool
 	config    *Config
 	flakeNode *snowflake.Node
@@ -73,18 +78,25 @@ func main() {
 	flakeNode, err = snowflake.NewNode(1)
 	checkError(err)
 
+	s3Config, err := awsConfig.LoadDefaultConfig(context.TODO(),
+		awsConfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(config.AWSAccessID, config.AWSSecretKey, "")),
+		awsConfig.WithRegion(config.AWSRegion),
+	)
+	checkError(err)
+
+	s3Client = s3.NewFromConfig(s3Config)
+
 	// Initialize database
 	dbString := fmt.Sprintf("postgres://%s:%s@%s/%s", config.SQLUser, config.SQLPass, config.SQLAddress, config.SQLDB)
 	dbConf, err := pgxpool.ParseConfig(dbString)
 	checkError(err)
-	pool, err = pgxpool.NewWithConfig(context.Background(), dbConf)
+	pool, err = pgxpool.NewWithConfig(ctx, dbConf)
 	checkError(err)
 
 	// Ensure this Postgresql connection is valid.
 	defer pool.Close()
 
 	fmt.Printf("Starting HTTP connection (%s)...\nNot using the usual port for HTTP?\nBe sure to use a proxy, otherwise the Wii can't connect!\n", config.Address)
-	gin.SetMode(gin.ReleaseMode)
 	g := gin.Default()
 
 	if config.UseOTLP {
@@ -93,7 +105,7 @@ func main() {
 			log.Fatalf("Failed to initialize tracer: %v", err)
 		}
 		defer func() {
-			if err := tp.Shutdown(context.Background()); err != nil {
+			if err = tp.Shutdown(ctx); err != nil {
 				log.Printf("Error shutting down tracer provider: %v", err)
 			}
 		}()
@@ -106,7 +118,7 @@ func main() {
 	g.POST("/cgi-bin/receive.cgi", receive)
 	g.POST("/cgi-bin/delete.cgi", _delete)
 	g.POST("/cgi-bin/account.cgi", account)
-	// g.POST("/mail/inbound", inbound)
 
+	go processInbound()
 	log.Fatalln(g.Run(config.Address))
 }

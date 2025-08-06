@@ -39,4 +39,8 @@ type Config struct {
 	UseDatadog   bool     `xml:"UseDatadog"`
 	UseOTLP      bool     `xml:"UseOTLP"`
 	OTLPEndpoint string   `xml:"OTLPEndpoint"`
+	AWSAccessID  string   `xml:"AWSAccessId"`
+	AWSSecretKey string   `xml:"AWSSecretKey"`
+	AWSRegion    string   `xml:"AWSRegion"`
+	AWSBucket    string   `xml:"AWSBucket"`
 }
