@@ -140,7 +140,7 @@ func readMessage(email *s3.GetObjectOutput) error {
 	}
 
 	toRaw := msg.Header.Get("To")
-	to, err := mail.ParseAddress(toRaw)
+	toList, err := mail.ParseAddressList(toRaw)
 	if err != nil {
 		return err
 	}
@@ -172,16 +172,24 @@ func readMessage(email *s3.GetObjectOutput) error {
 		parts.Text = PlaceholderMessage
 	}
 
-	formulatedMail, err := formulateMessage(from.Address, to.Address, subject, parts)
-	if err != nil {
-		return err
-	}
+	for _, to := range toList {
+		// Discard anything that does not go to rc24.xyz.
+		if !strings.Contains(to.Address, "rc24.xyz") {
+			continue
+		}
+		fmt.Println(to.Address)
 
-	// We can do pretty much the exact same thing as the Wii send endpoint
-	parsedWiiNumber := strings.Split(to.Address, "@")[0]
-	_, err = pool.Exec(ctx, InsertMail, flakeNode.Generate(), formulatedMail, from.Address, parsedWiiNumber[1:])
-	if err != nil {
-		return err
+		formulatedMail, err := formulateMessage(from.Address, to.Address, subject, parts)
+		if err != nil {
+			return err
+		}
+
+		// We can do pretty much the exact same thing as the Wii send endpoint
+		parsedWiiNumber := strings.Split(to.Address, "@")[0]
+		_, err = pool.Exec(ctx, InsertMail, flakeNode.Generate(), formulatedMail, from.Address, parsedWiiNumber[1:])
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
