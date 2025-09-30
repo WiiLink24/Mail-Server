@@ -51,6 +51,7 @@ func main() {
 	err = sentry.Init(sentry.ClientOptions{
 		Dsn:              config.SentryDSN,
 		Debug:            config.IsDebug,
+		EnableTracing:    true,
 		TracesSampleRate: 1.0,
 	})
 	checkError(err)
