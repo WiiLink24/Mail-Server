@@ -50,7 +50,7 @@ func account(c *gin.Context) {
 		}
 
 		cgi := GenCGIError(410, "An error has occurred while querying the database.")
-		ReportError(err)
+		ReportErrorGin(c, err)
 		c.String(http.StatusOK, ConvertToCGI(cgi))
 		return
 	}

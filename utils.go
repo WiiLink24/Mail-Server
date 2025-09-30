@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/WiiLink24/nwc24"
 	"github.com/getsentry/sentry-go"
+	sentrygin "github.com/getsentry/sentry-go/gin"
+	"github.com/gin-gonic/gin"
 	"github.com/logrusorgru/aurora/v4"
 	"log"
 	"math/rand"
@@ -35,9 +37,20 @@ func (c *CGIResponse) AddMailResponse(index string, code int, message string) {
 	})
 }
 
-// ReportError helps make errors nicer. First it logs the error to Sentry,
+// ReportErrorGin helps make errors nicer. First it logs the error to Sentry,
 // then prints the error to stdout
-func ReportError(err error) {
+func ReportErrorGin(c *gin.Context, err error) {
+	if hub := sentrygin.GetHubFromContext(c); hub != nil {
+		hub.WithScope(func(scope *sentry.Scope) {
+			hub.CaptureException(err)
+		})
+	}
+
+	log.Printf("An error has occurred: %s", aurora.Red(err.Error()))
+}
+
+// ReportErrorGlobal is for errors that do not occur within a *gin.Context.
+func ReportErrorGlobal(err error) {
 	sentry.CaptureException(err)
 	log.Printf("An error has occurred: %s", aurora.Red(err.Error()))
 }

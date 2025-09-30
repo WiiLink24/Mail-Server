@@ -99,7 +99,7 @@ func check(c *gin.Context) {
 	if config.UseDatadog {
 		err = dataDog.Incr("mail.checked", nil, 1)
 		if err != nil {
-			ReportError(err)
+			ReportErrorGin(c, err)
 		}
 	}
 

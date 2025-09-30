@@ -29,12 +29,11 @@ func receive(c *gin.Context) {
 	err := validatePassword(ctx, mlid, password)
 	if errors.Is(err, ErrInvalidCredentials) {
 		cgi := GenCGIError(250, err.Error())
-		ReportError(err)
 		c.String(http.StatusOK, ConvertToCGI(cgi))
 		return
 	} else if err != nil {
 		cgi := GenCGIError(551, "An error has occurred while querying the database.")
-		ReportError(err)
+		ReportErrorGin(c, err)
 		c.String(http.StatusOK, ConvertToCGI(cgi))
 		return
 	}
@@ -49,7 +48,7 @@ func receive(c *gin.Context) {
 	mail, err := pool.Query(ctx, QueryMailToSend, mlid[1:])
 	if err != nil {
 		cgi := GenCGIError(551, "An error has occurred while querying the database.")
-		ReportError(err)
+		ReportErrorGin(c, err)
 		c.String(http.StatusOK, ConvertToCGI(cgi))
 
 		// Determine if this was a timeout error and log if so.
@@ -73,7 +72,7 @@ func receive(c *gin.Context) {
 		err = mail.Scan(&snowflake, &data)
 		if err != nil {
 			// Abandon this mail and report to Sentry
-			ReportError(err)
+			ReportErrorGin(c, err)
 			continue
 		}
 
@@ -86,7 +85,7 @@ func receive(c *gin.Context) {
 				log.Printf("%s %d.", aurora.BgBrightYellow("Toggling update flag failed for message"), snowflake)
 			}
 
-			ReportError(err)
+			ReportErrorGin(c, err)
 			continue
 		}
 
@@ -127,7 +126,7 @@ func receive(c *gin.Context) {
 	if config.UseDatadog {
 		err = dataDog.Incr("mail.received_mail", nil, float64(numberOfMail))
 		if err != nil {
-			ReportError(err)
+			ReportErrorGin(c, err)
 		}
 	}
 

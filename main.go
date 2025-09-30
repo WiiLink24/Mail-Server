@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bwmarrin/snowflake"
 	"github.com/getsentry/sentry-go"
+	sentrygin "github.com/getsentry/sentry-go/gin"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -112,6 +113,8 @@ func main() {
 
 		g.Use(otelgin.Middleware("wii-mail", otelgin.WithTracerProvider(tp)))
 	}
+
+	g.Use(sentrygin.New(sentrygin.Options{}))
 
 	g.POST("/cgi-bin/check.cgi", check)
 	g.POST("/cgi-bin/send.cgi", send)

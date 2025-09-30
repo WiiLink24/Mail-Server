@@ -97,7 +97,7 @@ func processInbound() {
 		// Get all mail in the bucket.
 		objects, err := GetObjects()
 		if err != nil {
-			ReportError(err)
+			ReportErrorGlobal(err)
 			continue
 		}
 
@@ -105,21 +105,21 @@ func processInbound() {
 			// Download the mail.
 			objectData, err := DownloadObject(object)
 			if err != nil {
-				ReportError(err)
+				ReportErrorGlobal(err)
 				continue
 			}
 
 			// Save to our server in a format the Wii can understand.
 			err = readMessage(objectData)
 			if err != nil {
-				ReportError(err)
+				ReportErrorGlobal(err)
 				continue
 			}
 
 			// Finally delete.
 			err = DeleteObject(object)
 			if err != nil {
-				ReportError(err)
+				ReportErrorGlobal(err)
 			}
 		}
 	}

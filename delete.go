@@ -17,12 +17,11 @@ func _delete(c *gin.Context) {
 	err := validatePassword(ctx, mlid, password)
 	if errors.Is(err, ErrInvalidCredentials) {
 		cgi := GenCGIError(250, err.Error())
-		ReportError(err)
 		c.String(http.StatusOK, ConvertToCGI(cgi))
 		return
 	} else if err != nil {
 		cgi := GenCGIError(551, "An error has occurred while querying the database.")
-		ReportError(err)
+		ReportErrorGin(c, err)
 		c.String(http.StatusOK, ConvertToCGI(cgi))
 		return
 	}
@@ -34,7 +33,6 @@ func _delete(c *gin.Context) {
 	intDelNum, err := strconv.ParseInt(delNum, 10, 64)
 	if err != nil {
 		cgi := GenCGIError(340, "Invalid delnum value was passed")
-		ReportError(err)
 		c.String(http.StatusOK, ConvertToCGI(cgi))
 		return
 	}
@@ -42,7 +40,7 @@ func _delete(c *gin.Context) {
 	_, err = pool.Exec(ctx, DeleteSentMail, mlid[1:])
 	if err != nil {
 		cgi := GenCGIError(541, "An error has occurred while deleting the messages from the database.")
-		ReportError(err)
+		ReportErrorGin(c, err)
 		c.String(http.StatusOK, ConvertToCGI(cgi))
 		return
 	}
@@ -61,7 +59,7 @@ func _delete(c *gin.Context) {
 	if config.UseDatadog {
 		err = dataDog.Incr("mail.deleted_mail", nil, float64(intDelNum))
 		if err != nil {
-			ReportError(err)
+			ReportErrorGin(c, err)
 		}
 	}
 

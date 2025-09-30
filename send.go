@@ -37,7 +37,7 @@ func send(c *gin.Context) {
 		return
 	} else if err != nil {
 		cgi := GenCGIError(551, "An error has occurred while querying the database.")
-		ReportError(err)
+		ReportErrorGin(c, err)
 		c.String(http.StatusOK, ConvertToCGI(cgi))
 		return
 	}
@@ -156,7 +156,7 @@ func send(c *gin.Context) {
 			err := pool.QueryRow(ctx, RecipientExists, recipient[1:]).Scan(&exists)
 			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				cgi.AddMailResponse(index, 551, "Issue verifying recipient.")
-				ReportError(err)
+				ReportErrorGin(c, err)
 				didError = true
 				break
 			} else if !exists {
@@ -168,7 +168,7 @@ func send(c *gin.Context) {
 			_, err = pool.Exec(ctx, InsertMail, flakeNode.Generate(), parsedMail, mlid[1:], recipient[1:])
 			if err != nil {
 				cgi.AddMailResponse(index, 450, "Database error.")
-				ReportError(err)
+				ReportErrorGin(c, err)
 				didError = true
 				break
 			}
@@ -187,7 +187,7 @@ func send(c *gin.Context) {
 			)
 			if err != nil {
 				cgi.AddMailResponse(index, 551, "SMTP error.")
-				ReportError(err)
+				ReportErrorGin(c, err)
 				didError = true
 				continue
 			}
@@ -200,7 +200,7 @@ func send(c *gin.Context) {
 			if config.UseDatadog {
 				err = dataDog.Incr("mail.sent_mail", nil, 1)
 				if err != nil {
-					ReportError(err)
+					ReportErrorGin(c, err)
 				}
 			}
 		}
