@@ -50,7 +50,7 @@ func main() {
 	// Before we do anything, init Sentry to capture all errors.
 	err = sentry.Init(sentry.ClientOptions{
 		Dsn:              config.SentryDSN,
-		Debug:            true,
+		Debug:            config.IsDebug,
 		TracesSampleRate: 1.0,
 	})
 	checkError(err)
@@ -98,6 +98,10 @@ func main() {
 	defer pool.Close()
 
 	fmt.Printf("Starting HTTP connection (%s)...\nNot using the usual port for HTTP?\nBe sure to use a proxy, otherwise the Wii can't connect!\n", config.Address)
+	if !config.IsDebug {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	g := gin.Default()
 
 	if config.UseOTLP {

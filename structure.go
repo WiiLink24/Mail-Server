@@ -43,4 +43,5 @@ type Config struct {
 	AWSSecretKey string   `xml:"AWSSecretKey"`
 	AWSRegion    string   `xml:"AWSRegion"`
 	AWSBucket    string   `xml:"AWSBucket"`
+	IsDebug      bool     `xml:"IsDebug"`
 }
