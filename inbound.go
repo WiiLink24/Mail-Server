@@ -11,7 +11,6 @@ import (
 	"image"
 	"image/jpeg"
 	"io"
-	"log"
 	"mime"
 	"mime/multipart"
 	"net/mail"
@@ -42,6 +41,11 @@ type Message struct {
 	Text       string
 }
 
+// isCharsetError exists because the error is private in the mail package.
+func isCharsetError(err error) bool {
+	return strings.Contains(err.Error(), "charset not supported")
+}
+
 func readMultipartMessage(message io.Reader, boundary string) (*Message, error) {
 	multipartReader := multipart.NewReader(message, boundary)
 
@@ -59,14 +63,14 @@ func readMultipartMessage(message io.Reader, boundary string) (*Message, error) 
 
 		body, err := io.ReadAll(p)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		// Decode base64 if needed
 		if strings.ToLower(contentTransferEncoding) == "base64" {
 			body, err = base64.StdEncoding.DecodeString(string(body))
 			if err != nil {
-				log.Fatalf("Error decoding base64: %v", err)
+				return nil, err
 			}
 		}
 
@@ -112,6 +116,15 @@ func processInbound() {
 			// Save to our server in a format the Wii can understand.
 			err = readMessage(objectData)
 			if err != nil {
+				if isCharsetError(err) {
+					// Go mail package cannot handle some formats. In this case we delete.
+					err = DeleteObject(object)
+					if err != nil {
+						ReportErrorGlobal(err)
+					}
+					continue
+				}
+
 				ReportErrorGlobal(err)
 				continue
 			}
@@ -130,7 +143,7 @@ func readMessage(email *s3.GetObjectOutput) error {
 	defer email.Body.Close()
 	msg, err := mail.ReadMessage(email.Body)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	fromRaw := msg.Header.Get("From")
@@ -156,7 +169,7 @@ func readMessage(email *s3.GetObjectOutput) error {
 	if strings.HasPrefix(mediaType, "multipart/") {
 		parts, err = readMultipartMessage(msg.Body, params["boundary"])
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	} else if strings.HasPrefix(mediaType, "text/") {
 		// Body should be the message.
