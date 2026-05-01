@@ -2,15 +2,18 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"math/rand"
+	"net"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/WiiLink24/nwc24"
 	"github.com/getsentry/sentry-go"
 	sentrygin "github.com/getsentry/sentry-go/gin"
 	"github.com/gin-gonic/gin"
 	"github.com/logrusorgru/aurora/v4"
-	"log"
-	"math/rand"
-	"strconv"
-	"time"
 )
 
 const (
@@ -106,4 +109,25 @@ func RandStringBytesMaskImprSrc(n int) string {
 	}
 
 	return string(b)
+}
+
+// For some reason, the Wii doesn't validate that the email address is valid.
+// (i.e. The amazing Sentry error where a user emailed the domain '1679')
+// Furthermore, we also check if the domain actually exists.
+func validateEmailAddress(email string) bool {
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return false
+	}
+
+	domain := parts[1]
+
+	// Search the MX records for the supposed domain.
+	records, err := net.LookupMX(domain)
+	if err != nil || len(records) == 0 {
+		// No email servers.
+		return false
+	}
+
+	return true
 }
