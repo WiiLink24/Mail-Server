@@ -6,8 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"golang.org/x/image/draw"
 	"image"
 	"image/jpeg"
 	"io"
@@ -17,6 +15,9 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"golang.org/x/image/draw"
 
 	// Importing as a side effect allows for the image library to check for these formats
 	_ "image/gif"
@@ -39,11 +40,9 @@ const (
 type Message struct {
 	Attachment []byte
 	Text       string
-}
-
-// isCharsetError exists because the error is private in the mail package.
-func isCharsetError(err error) bool {
-	return strings.Contains(err.Error(), "charset not supported")
+	From       *mail.Address
+	ToList     []*mail.Address
+	Subject    string
 }
 
 func readMultipartMessage(message io.Reader, boundary string) (*Message, error) {
@@ -114,17 +113,19 @@ func processInbound() {
 			}
 
 			// Save to our server in a format the Wii can understand.
-			err = readMessage(objectData)
+			msg, err := readMessage(objectData)
 			if err != nil {
-				if isCharsetError(err) {
-					// Go mail package cannot handle some formats. In this case we delete.
-					err = DeleteObject(object)
-					if err != nil {
-						ReportErrorGlobal(err)
-					}
-					continue
+				// Invalid message.
+				err = DeleteObject(object)
+				if err != nil {
+					ReportErrorGlobal(err)
 				}
+				continue
+			}
 
+			// Save to the server
+			err = saveMessage(msg)
+			if err != nil {
 				ReportErrorGlobal(err)
 				continue
 			}
@@ -138,44 +139,44 @@ func processInbound() {
 	}
 }
 
-func readMessage(email *s3.GetObjectOutput) error {
+func readMessage(email *s3.GetObjectOutput) (*Message, error) {
 	// Parse the mail message
 	defer email.Body.Close()
 	msg, err := mail.ReadMessage(email.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	fromRaw := msg.Header.Get("From")
 	from, err := mail.ParseAddress(fromRaw)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	toRaw := msg.Header.Get("To")
 	toList, err := mail.ParseAddressList(toRaw)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	subject := msg.Header.Get("Subject")
 
 	mediaType, params, err := mime.ParseMediaType(msg.Header.Get("Content-Type"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	parts := &Message{}
 	if strings.HasPrefix(mediaType, "multipart/") {
 		parts, err = readMultipartMessage(msg.Body, params["boundary"])
 		if err != nil {
-			return err
+			return nil, err
 		}
 	} else if strings.HasPrefix(mediaType, "text/") {
 		// Body should be the message.
 		msgBytes, err := io.ReadAll(msg.Body)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		parts.Text = removeNonUTF8Characters(string(msgBytes))
@@ -185,21 +186,28 @@ func readMessage(email *s3.GetObjectOutput) error {
 		parts.Text = PlaceholderMessage
 	}
 
-	for _, to := range toList {
+	parts.From = from
+	parts.ToList = toList
+	parts.Subject = subject
+
+	return parts, nil
+}
+
+func saveMessage(msg *Message) error {
+	for _, to := range msg.ToList {
 		// Discard anything that does not go to rc24.xyz.
 		if !strings.Contains(to.Address, "rc24.xyz") {
 			continue
 		}
-		fmt.Println(to.Address)
 
-		formulatedMail, err := formulateMessage(from.Address, to.Address, subject, parts)
+		formulatedMail, err := formulateMessage(msg.From.Address, to.Address, msg.Subject, msg)
 		if err != nil {
 			return err
 		}
 
 		// We can do pretty much the exact same thing as the Wii send endpoint
 		parsedWiiNumber := strings.Split(to.Address, "@")[0]
-		_, err = pool.Exec(ctx, InsertMail, flakeNode.Generate(), formulatedMail, from.Address, parsedWiiNumber[1:])
+		_, err = pool.Exec(ctx, InsertMail, flakeNode.Generate(), formulatedMail, msg.From.Address, parsedWiiNumber[1:])
 		if err != nil {
 			return err
 		}
