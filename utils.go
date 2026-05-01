@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"net/mail"
 	"strconv"
 	"strings"
 	"time"
@@ -115,7 +116,12 @@ func RandStringBytesMaskImprSrc(n int) string {
 // (i.e. The amazing Sentry error where a user emailed the domain '1679')
 // Furthermore, we also check if the domain actually exists.
 func validateEmailAddress(email string) bool {
-	parts := strings.Split(email, "@")
+	address, err := mail.ParseAddress(email)
+	if err != nil {
+		return false
+	}
+
+	parts := strings.Split(address.Address, "@")
 	if len(parts) != 2 {
 		return false
 	}
