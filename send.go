@@ -140,16 +140,16 @@ func send(c *gin.Context) {
 		// Replace all @wii.com references in the
 		// friend request email with our own domain.
 		// Format: w9004342343324713@wii.com <mailto:w9004342343324713@wii.com>
-		parsedMail = strings.Replace(parsedMail,
+		parsedMail = strings.ReplaceAll(parsedMail,
 			"wii.com",
-			"rc24.xyz",
-			-1)
+			"rc24.xyz")
 
 		// We should also replace mail.wiilink24.com.
-		parsedMail = strings.Replace(parsedMail,
+		parsedMail = strings.ReplaceAll(parsedMail,
 			"mail.wiilink24.com",
-			"rc24.xyz",
-			-1)
+			"rc24.xyz")
+
+		parsedMail = strings.ReplaceAll(parsedMail, "\x00", "")
 
 		var didError bool
 		for _, recipient := range wiiRecipients {
