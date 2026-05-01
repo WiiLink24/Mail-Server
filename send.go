@@ -5,11 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/smtp"
 	"regexp"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 var (
@@ -176,6 +177,14 @@ func send(c *gin.Context) {
 
 		for _, recipient := range emailRecipients {
 			// PC Mail
+			// First validate email
+			valid := validateEmailAddress(recipient)
+			if !valid {
+				// Not valid, move on to the next email.
+				// We do not want to toggle error otherwise it will try and send again.
+				continue
+			}
+
 			// Production utilizes Amazon SES.
 			auth := smtp.PlainAuth("", config.SMTPUsername, config.SMTPPassword, config.SMTPHost)
 			err = smtp.SendMail(
@@ -185,6 +194,7 @@ func send(c *gin.Context) {
 				[]string{recipient},
 				[]byte(parsedMail),
 			)
+
 			if err != nil {
 				cgi.AddMailResponse(index, 551, "SMTP error.")
 				ReportErrorGin(c, err)
