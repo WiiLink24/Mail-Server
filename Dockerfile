@@ -1,4 +1,4 @@
-FROM golang:1.24.3-alpine3.21 AS builder
+FROM golang:1.25-alpine AS builder
 
 # We assume only git is needed for all dependencies.
 # openssl is already built-in.
