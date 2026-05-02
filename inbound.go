@@ -75,7 +75,7 @@ func readMultipartMessage(message io.Reader, boundary string) (*Message, error) 
 
 		if strings.HasPrefix(contentType, "image/") {
 			msg.Attachment = body
-		} else if strings.HasPrefix(contentType, "text/") {
+		} else if strings.HasPrefix(contentType, "text/plain") {
 			msg.Text = removeNonUTF8Characters(string(body))
 		} else {
 			// We can't handle this, discard.
