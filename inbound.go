@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/k3a/html2text"
 	"golang.org/x/image/draw"
 
 	// Importing as a side effect allows for the image library to check for these formats
@@ -49,6 +50,7 @@ func readMultipartMessage(message io.Reader, boundary string) (*Message, error) 
 	multipartReader := multipart.NewReader(message, boundary)
 
 	var msg Message
+	var fallbackHTML string
 	for {
 		p, err := multipartReader.NextPart()
 		if errors.Is(err, io.EOF) {
@@ -75,12 +77,19 @@ func readMultipartMessage(message io.Reader, boundary string) (*Message, error) 
 
 		if strings.HasPrefix(contentType, "image/") {
 			msg.Attachment = body
+		} else if strings.HasPrefix(contentType, "text/html") {
+			fallbackHTML = string(body)
 		} else if strings.HasPrefix(contentType, "text/") {
 			msg.Text = removeNonUTF8Characters(string(body))
 		} else {
 			// We can't handle this, discard.
 			continue
 		}
+	}
+
+	// In the unlikely context of the multipart email being HTML only, cleanup and serve the HTML.
+	if len(msg.Text) == 0 && len(fallbackHTML) > 0 {
+		msg.Text = removeNonUTF8Characters(html2text.HTML2Text(fallbackHTML))
 	}
 
 	return &msg, nil
@@ -172,8 +181,14 @@ func readMessage(email *s3.GetObjectOutput) (*Message, error) {
 		if err != nil {
 			return nil, err
 		}
+	} else if strings.HasPrefix(mediaType, "text/html") {
+		msgBytes, err := io.ReadAll(msg.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		parts.Text = removeNonUTF8Characters(html2text.HTML2Text(string(msgBytes)))
 	} else if strings.HasPrefix(mediaType, "text/") {
-		// Body should be the message.
 		msgBytes, err := io.ReadAll(msg.Body)
 		if err != nil {
 			return nil, err
