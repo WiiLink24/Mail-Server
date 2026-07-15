@@ -15,6 +15,7 @@ require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
 	github.com/jackc/pgx/v5 v5.9.2
+	github.com/k3a/html2text v1.4.0
 	github.com/logrusorgru/aurora/v4 v4.0.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.68.0
 	go.opentelemetry.io/otel v1.43.0
@@ -39,7 +40,7 @@ require (
 	github.com/DataDog/datadog-agent/pkg/util/log v0.78.2 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/scrubber v0.78.2 // indirect
 	github.com/DataDog/datadog-agent/pkg/version v0.78.2 // indirect
-	github.com/DataDog/dd-trace-go/v2 v2.7.4 // indirect
+	github.com/DataDog/dd-trace-go/v2 v2.8.1 // indirect
 	github.com/DataDog/go-libddwaf/v4 v4.9.0 // indirect
 	github.com/DataDog/go-runtime-metrics-internal v0.0.4-0.20260217080614-b0f4edc38a6d // indirect
 	github.com/DataDog/go-sqllexer v0.2.1 // indirect
@@ -89,7 +90,6 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/k3a/html2text v1.4.0 // indirect
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
