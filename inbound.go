@@ -59,7 +59,29 @@ func readMultipartMessage(message io.Reader, boundary string) (*Message, error) 
 			return nil, err
 		}
 
-		contentType := p.Header.Get("Content-Type")
+		contentType, params, err := mime.ParseMediaType(p.Header.Get("Content-Type"))
+		if errors.Is(err, mime.ErrInvalidMediaParameter) {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+
+		if strings.HasPrefix(contentType, "multipart/") {
+			nestedMultipart, err := readMultipartMessage(p, params["boundary"])
+			if err != nil {
+				return nil, err
+			}
+
+			// Add content from nested multipart if not already populated
+			if len(msg.Text) == 0 && len(nestedMultipart.Text) > 0 {
+				msg.Text = nestedMultipart.Text
+			}
+			if len(msg.Attachment) == 0 && len(nestedMultipart.Attachment) > 0 {
+				msg.Attachment = nestedMultipart.Attachment
+			}
+			continue
+		}
+
 		contentTransferEncoding := p.Header.Get("Content-Transfer-Encoding")
 
 		body, err := io.ReadAll(p)
