@@ -60,7 +60,9 @@ func readMultipartMessage(message io.Reader, boundary string) (*Message, error) 
 		}
 
 		contentType, params, err := mime.ParseMediaType(p.Header.Get("Content-Type"))
-		if err != nil {
+		if errors.Is(err, mime.ErrInvalidMediaParameter) {
+			continue
+		} else if err != nil {
 			return nil, err
 		}
 
